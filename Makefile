@@ -22,7 +22,7 @@ onvif-server:
 
 # Run tests
 test:
-	go test ./test/...
+	go test -v ./test/...
 
 # Run tests with coverage
 test-coverage:
