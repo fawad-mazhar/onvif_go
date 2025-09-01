@@ -21,11 +21,11 @@ func main() {
 		logger.Fatal("Failed to load config: %v", err)
 	}
 
-	// Start ONVIF server
+	// Start ONVIF HTTP server
 	go func() {
-		err := server.StartONVIFServer(cfg)
+		err := server.StartHTTPServer(cfg)
 		if err != nil {
-			logger.Fatal("ONVIF server error: %v", err)
+			logger.Fatal("ONVIF HTTP server error: %v", err)
 		}
 	}()
 

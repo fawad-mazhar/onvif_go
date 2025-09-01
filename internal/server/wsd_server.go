@@ -2,10 +2,11 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
-	
+
 	"github.com/fawad-mazhar/onvif-go/internal/config"
 	"github.com/fawad-mazhar/onvif-go/internal/logger"
 	"github.com/fawad-mazhar/onvif-go/internal/utils"
@@ -24,6 +25,7 @@ func StartWSDServer(cfg *config.ServiceContext) error {
 		logger.Error("Failed to get local IP address")
 		return err
 	}
+	logger.Info("WSD server detected local IP: %s", ip)
 	
 		
 	// Create HTTP server for WSD
@@ -80,15 +82,14 @@ func getLocalIP() string {
 // handleWSDRequest handles WSD requests and sends appropriate responses
 func handleWSDRequest(w http.ResponseWriter, r *http.Request, cfg *config.ServiceContext, ip string) {
 	// Read the request body
-	body := make([]byte, 1024)
-	n, err := r.Body.Read(body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		logger.Warn("Failed to read WSD request: %v", err)
 		http.Error(w, "Failed to read request", http.StatusBadRequest)
 		return
 	}
-	
-	request := string(body[:n])
+
+	request := string(body)
 	logger.Debug("WSD request: %s", request)
 	
 	// Set response headers

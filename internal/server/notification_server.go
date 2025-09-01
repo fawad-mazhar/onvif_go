@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -36,15 +37,14 @@ func StartNotificationServer(cfg *config.ServiceContext) error {
 // handleNotificationRequest handles notification requests and sends appropriate responses
 func handleNotificationRequest(w http.ResponseWriter, r *http.Request, cfg *config.ServiceContext) {
 	// Read the request body
-	body := make([]byte, 1024)
-	n, err := r.Body.Read(body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		logger.Warn("Failed to read notification request: %v", err)
 		http.Error(w, "Failed to read request", http.StatusBadRequest)
 		return
 	}
 	
-	request := string(body[:n])
+	request := string(body)
 	logger.Debug("Notification request: %s", request)
 	
 	// Set response headers

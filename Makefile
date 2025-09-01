@@ -11,7 +11,7 @@ MAIN_DIR := cmd/onvif-server
 LDFLAGS := -ldflags "-X main.version=$(VERSION)"
 
 # Default target
-all: build
+all: help
 
 # Build all binaries
 build: onvif-server
@@ -40,7 +40,6 @@ help:
 	@echo "ONVIF Go Server Makefile"
 	@echo ""
 	@echo "Targets:"
-	@echo "  all             - Build all binaries (default target)"
 	@echo "  build           - Build ONVIF server"
 	@echo "  onvif-server    - Build main ONVIF server"
 	@echo "  test            - Run all tests"
