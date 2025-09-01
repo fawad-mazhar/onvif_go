@@ -16,7 +16,7 @@ func main() {
 	logger.InitLogger(logger.INFO)
 
 	// Load configuration
-	cfg, err := config.LoadConfig("onvif_simple_server.conf")
+	cfg, err := config.LoadConfig("internal/config/onvif_simple_server.conf")
 	if err != nil {
 		logger.Fatal("Failed to load config: %v", err)
 	}

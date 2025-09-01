@@ -32,7 +32,7 @@ func (s *ServiceContext) GetServiceCapabilities() error {
 	replacements := map[string]string{}
 	
 	// Process template and write response
-	templatePath := filepath.Join("ptz_service_files", "GetServiceCapabilities.xml")
+	templatePath := filepath.Join("service_files", "ptz", "GetServiceCapabilities.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -53,7 +53,7 @@ func (s *ServiceContext) GetConfigurations() error {
 	replacements := map[string]string{}
 	
 	// Process template and write response
-	templatePath := filepath.Join("ptz_service_files", "GetConfigurations.xml")
+	templatePath := filepath.Join("service_files", "ptz", "GetConfigurations.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -87,7 +87,7 @@ func (s *ServiceContext) GetNodes() error {
 	}
 	
 	// Process template and write response
-	templatePath := filepath.Join("ptz_service_files", "GetNodes.xml")
+	templatePath := filepath.Join("service_files", "ptz", "GetNodes.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -108,7 +108,7 @@ func (s *ServiceContext) ContinuousMove(profileToken string, x float64, y float6
 	replacements := map[string]string{}
 	
 	// Process template and write response
-	templatePath := filepath.Join("ptz_service_files", "ContinuousMove.xml")
+	templatePath := filepath.Join("service_files", "ptz", "ContinuousMove.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -129,7 +129,7 @@ func (s *ServiceContext) AbsoluteMove(profileToken string, x float64, y float64,
 	replacements := map[string]string{}
 	
 	// Process template and write response
-	templatePath := filepath.Join("ptz_service_files", "AbsoluteMove.xml")
+	templatePath := filepath.Join("service_files", "ptz", "AbsoluteMove.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -150,7 +150,7 @@ func (s *ServiceContext) Stop(profileToken string) error {
 	replacements := map[string]string{}
 	
 	// Process template and write response
-	templatePath := filepath.Join("ptz_service_files", "Stop.xml")
+	templatePath := filepath.Join("service_files", "ptz", "Stop.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")

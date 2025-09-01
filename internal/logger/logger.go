@@ -2,16 +2,20 @@ package logger
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"time"
+	"github.com/sirupsen/logrus"
 )
 
-// LogLevel represents the level of logging
-type LogLevel int
+var logger *logrus.Logger
 
+func init() {
+	logger = logrus.New()
+	logger.SetLevel(logrus.InfoLevel)
+}
+
+// Log levels
 const (
-	FATAL LogLevel = iota
+	PANIC Level = iota
+	FATAL
 	ERROR
 	WARN
 	INFO
@@ -19,70 +23,100 @@ const (
 	TRACE
 )
 
-var (
-	currentLevel LogLevel
-	logger       *log.Logger
-)
+// Level represents a log level
+type Level logrus.Level
 
 // InitLogger initializes the logger with the specified level
-func InitLogger(level LogLevel) {
-	currentLevel = level
-	logger = log.New(os.Stderr, "", log.LstdFlags)
+func InitLogger(level Level) {
+	logger = logrus.New()
+	logger.SetLevel(logrus.Level(level))
 }
 
 // SetLevel sets the logging level
-func SetLevel(level LogLevel) {
-	currentLevel = level
+func SetLevel(level Level) {
+	logger.SetLevel(logrus.Level(level))
 }
 
 // Fatal logs a fatal error message
-func Fatal(format string, v ...interface{}) {
-	if currentLevel >= FATAL {
-		logger.Printf("[FATAL] "+format, v...)
-		os.Exit(1)
+func Fatal(format string, args ...interface{}) {
+	if len(args) > 0 {
+		logger.Fatal(fmt.Sprintf(format, args...))
+	} else {
+		logger.Fatal(format)
 	}
 }
 
 // Error logs an error message
-func Error(format string, v ...interface{}) {
-	if currentLevel >= ERROR {
-		logger.Printf("[ERROR] "+format, v...)
+func Error(format string, args ...interface{}) {
+	if len(args) > 0 {
+		logger.Error(fmt.Sprintf(format, args...))
+	} else {
+		logger.Error(format)
 	}
 }
 
 // Warn logs a warning message
-func Warn(format string, v ...interface{}) {
-	if currentLevel >= WARN {
-		logger.Printf("[WARN] "+format, v...)
+func Warn(format string, args ...interface{}) {
+	if len(args) > 0 {
+		logger.Warn(fmt.Sprintf(format, args...))
+	} else {
+		logger.Warn(format)
 	}
 }
 
 // Info logs an info message
-func Info(format string, v ...interface{}) {
-	if currentLevel >= INFO {
-		logger.Printf("[INFO] "+format, v...)
+func Info(format string, args ...interface{}) {
+	if len(args) > 0 {
+		logger.Info(fmt.Sprintf(format, args...))
+	} else {
+		logger.Info(format)
 	}
 }
 
 // Debug logs a debug message
-func Debug(format string, v ...interface{}) {
-	if currentLevel >= DEBUG {
-		logger.Printf("[DEBUG] "+format, v...)
+func Debug(format string, args ...interface{}) {
+	if len(args) > 0 {
+		logger.Debug(fmt.Sprintf(format, args...))
+	} else {
+		logger.Debug(format)
 	}
 }
 
 // Trace logs a trace message
-func Trace(format string, v ...interface{}) {
-	if currentLevel >= TRACE {
-		logger.Printf("[TRACE] "+format, v...)
+func Trace(format string, args ...interface{}) {
+	if len(args) > 0 {
+		logger.Trace(fmt.Sprintf(format, args...))
+	} else {
+		logger.Trace(format)
 	}
 }
 
-// LogWithTime logs a message with a timestamp
-func LogWithTime(level LogLevel, format string, v ...interface{}) {
-	if currentLevel >= level {
-		timestamp := time.Now().Format("2006-01-02 15:04:05")
-		message := fmt.Sprintf(format, v...)
-		logger.Printf("%s %s", timestamp, message)
-	}
+// Fatalf logs a fatal error message with formatting
+func Fatalf(format string, args ...interface{}) {
+	logger.Fatalf(format, args...)
+}
+
+// Errorf logs an error message with formatting
+func Errorf(format string, args ...interface{}) {
+	logger.Errorf(format, args...)
+}
+
+// Warnf logs a warning message with formatting
+func Warnf(format string, args ...interface{}) {
+	logger.Warnf(format, args...)
+}
+
+// Infof logs an info message with formatting
+func Infof(format string, args ...interface{}) {
+	logger.Infof(format, args...)
+}
+
+// Debugf logs a debug message with formatting
+func Debugf(format string, args ...interface{}) {
+	logger.Debugf(format, args...)
+}
+
+// Tracef logs a trace message with formatting
+func Tracef(format string, args ...interface{}) {
+	logger.Tracef(format, args...)
 }

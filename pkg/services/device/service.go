@@ -49,7 +49,7 @@ func (s *ServiceContext) GetServices() error {
 	}
 	
 	// Process template and write response
-	templatePath := filepath.Join("device_service_files", "GetServices.xml")
+	templatePath := filepath.Join("service_files", "device", "GetServices.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -76,7 +76,7 @@ func (s *ServiceContext) GetDeviceInformation() error {
 	}
 	
 	// Process template and write response
-	templatePath := filepath.Join("device_service_files", "GetDeviceInformation.xml")
+	templatePath := filepath.Join("service_files", "device", "GetDeviceInformation.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -120,7 +120,7 @@ func (s *ServiceContext) GetCapabilities() error {
 	}
 	
 	// Process template and write response
-	templatePath := filepath.Join("device_service_files", "GetCapabilities.xml")
+	templatePath := filepath.Join("service_files", "device", "GetCapabilities.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -151,7 +151,7 @@ func (s *ServiceContext) GetScopes() error {
 	}
 	
 	// Process template and write response
-	templatePath := filepath.Join("device_service_files", "GetScopes.xml")
+	templatePath := filepath.Join("service_files", "device", "GetScopes.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -174,7 +174,7 @@ func (s *ServiceContext) SystemReboot() error {
 	}
 	
 	// Process template and write response
-	templatePath := filepath.Join("device_service_files", "SystemReboot.xml")
+	templatePath := filepath.Join("service_files", "device", "SystemReboot.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -205,7 +205,7 @@ func (s *ServiceContext) GetSystemDateAndTime() error {
 	}
 	
 	// Process template and write response
-	templatePath := filepath.Join("device_service_files", "GetSystemDateAndTime.xml")
+	templatePath := filepath.Join("service_files", "device", "GetSystemDateAndTime.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -223,7 +223,7 @@ func (s *ServiceContext) GetSystemDateAndTime() error {
 // GetUsers handles the GetUsers ONVIF device service method
 func (s *ServiceContext) GetUsers() error {
 	// Process template and write response
-	templatePath := filepath.Join("device_service_files", "GetUsers.xml")
+	templatePath := filepath.Join("service_files", "device", "GetUsers.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -246,7 +246,7 @@ func (s *ServiceContext) GetWsdlUrl() error {
 	}
 	
 	// Process template and write response
-	templatePath := filepath.Join("device_service_files", "GetWsdlUrl.xml")
+	templatePath := filepath.Join("service_files", "device", "GetWsdlUrl.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -264,7 +264,7 @@ func (s *ServiceContext) GetWsdlUrl() error {
 // GetNetworkInterfaces handles the GetNetworkInterfaces ONVIF device service method
 func (s *ServiceContext) GetNetworkInterfaces() error {
 	// Process template and write response
-	templatePath := filepath.Join("device_service_files", "GetNetworkInterfaces.xml")
+	templatePath := filepath.Join("service_files", "device", "GetNetworkInterfaces.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -282,7 +282,7 @@ func (s *ServiceContext) GetNetworkInterfaces() error {
 // GetDiscoveryMode handles the GetDiscoveryMode ONVIF device service method
 func (s *ServiceContext) GetDiscoveryMode() error {
 	// Process template and write response
-	templatePath := filepath.Join("device_service_files", "GetDiscoveryMode.xml")
+	templatePath := filepath.Join("service_files", "device", "GetDiscoveryMode.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")

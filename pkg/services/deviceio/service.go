@@ -26,7 +26,7 @@ func (s *ServiceContext) GetServiceCapabilities() error {
 	replacements := map[string]string{}
 	
 	// Process template and write response
-	templatePath := filepath.Join("deviceio_service_files", "GetServiceCapabilities.xml")
+	templatePath := filepath.Join("service_files", "deviceio", "GetServiceCapabilities.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -60,7 +60,7 @@ func (s *ServiceContext) GetRelayOutputs() error {
 	}
 	
 	// Process template and write response
-	templatePath := filepath.Join("deviceio_service_files", "GetRelayOutputs.xml")
+	templatePath := filepath.Join("service_files", "deviceio", "GetRelayOutputs.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -81,7 +81,7 @@ func (s *ServiceContext) GetAudioSources() error {
 	replacements := map[string]string{}
 	
 	// Process template and write response
-	templatePath := filepath.Join("deviceio_service_files", "GetAudioSources.xml")
+	templatePath := filepath.Join("service_files", "deviceio", "GetAudioSources.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -102,7 +102,7 @@ func (s *ServiceContext) GetAudioOutputs() error {
 	replacements := map[string]string{}
 	
 	// Process template and write response
-	templatePath := filepath.Join("deviceio_service_files", "GetAudioOutputs.xml")
+	templatePath := filepath.Join("service_files", "deviceio", "GetAudioOutputs.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")

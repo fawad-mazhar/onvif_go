@@ -34,7 +34,7 @@ func (s *ServiceContext) GetServiceCapabilities() error {
 	}
 	
 	// Process template and write response
-	templatePath := filepath.Join("media_service_files", "GetServiceCapabilities.xml")
+	templatePath := filepath.Join("service_files", "media", "GetServiceCapabilities.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -65,7 +65,7 @@ func (s *ServiceContext) GetProfiles() error {
 	}
 	
 	// Process template and write response
-	templatePath := filepath.Join("media_service_files", "GetProfiles.xml")
+	templatePath := filepath.Join("service_files", "media", "GetProfiles.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -101,7 +101,7 @@ func (s *ServiceContext) GetStreamUri(profileToken string) error {
 	}
 	
 	// Process template and write response
-	templatePath := filepath.Join("media_service_files", "GetStreamUri.xml")
+	templatePath := filepath.Join("service_files", "media", "GetStreamUri.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -137,7 +137,7 @@ func (s *ServiceContext) GetSnapshotUri(profileToken string) error {
 	}
 	
 	// Process template and write response
-	templatePath := filepath.Join("media_service_files", "GetSnapshotUri.xml")
+	templatePath := filepath.Join("service_files", "media", "GetSnapshotUri.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")

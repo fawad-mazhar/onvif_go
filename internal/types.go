@@ -1,66 +1,7 @@
 package main
 
-// StreamType represents the video stream type
-type StreamType int
-
-const (
-	VIDEO_NONE StreamType = iota
-	JPEG
-	MPEG4
-	H264
-	H265
-)
-
-// String returns the string representation of StreamType
-func (s StreamType) String() string {
-	switch s {
-	case VIDEO_NONE:
-		return "VIDEO_NONE"
-	case JPEG:
-		return "JPEG"
-	case MPEG4:
-		return "MPEG4"
-	case H264:
-		return "H264"
-	case H265:
-		return "H265"
-	default:
-		return "UNKNOWN"
-	}
-}
-
-// AudioType represents the audio stream type
-type AudioType int
-
-const (
-	AUDIO_NONE AudioType = iota
-	G711
-	G726
-	AAC
-)
-
-// String returns the string representation of AudioType
-func (a AudioType) String() string {
-	switch a {
-	case AUDIO_NONE:
-		return "AUDIO_NONE"
-	case G711:
-		return "G711"
-	case G726:
-		return "G726"
-	case AAC:
-		return "AAC"
-	default:
-		return "UNKNOWN"
-	}
-}
-
-// IdleState represents the relay output idle state
-type IdleState int
-
-const (
-	IDLE_STATE_CLOSE IdleState = iota
-	IDLE_STATE_OPEN
+import (
+	"github.com/fawad-mazhar/onvif-go/internal/config"
 )
 
 // EventsEnable represents the events service enable state
@@ -90,14 +31,14 @@ type StreamProfile struct {
 	Height       int
 	URL          string
 	SnapURL      string
-	Type         StreamType
-	AudioEncoder AudioType
-	AudioDecoder AudioType
+	Type         config.StreamType
+	AudioEncoder config.AudioType
+	AudioDecoder config.AudioType
 }
 
 // RelayOutput represents a relay output configuration
 type RelayOutput struct {
-	IdleState IdleState
+	IdleState config.IdleState
 	CloseCmd  string
 	OpenCmd   string
 }

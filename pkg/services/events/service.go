@@ -25,7 +25,7 @@ func (s *ServiceContext) GetServiceCapabilities() error {
 	replacements := map[string]string{}
 	
 	// Process template and write response
-	templatePath := filepath.Join("events_service_files", "GetServiceCapabilities.xml")
+	templatePath := filepath.Join("service_files", "events", "GetServiceCapabilities.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -59,7 +59,7 @@ func (s *ServiceContext) GetEventProperties() error {
 	}
 	
 	// Process template and write response
-	templatePath := filepath.Join("events_service_files", "GetEventProperties.xml")
+	templatePath := filepath.Join("service_files", "events", "GetEventProperties.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -80,7 +80,7 @@ func (s *ServiceContext) CreatePullPointSubscription() error {
 	replacements := map[string]string{}
 	
 	// Process template and write response
-	templatePath := filepath.Join("events_service_files", "CreatePullPointSubscription.xml")
+	templatePath := filepath.Join("service_files", "events", "CreatePullPointSubscription.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
@@ -101,7 +101,7 @@ func (s *ServiceContext) PullMessages() error {
 	replacements := map[string]string{}
 	
 	// Process template and write response
-	templatePath := filepath.Join("events_service_files", "PullMessages.xml")
+	templatePath := filepath.Join("service_files", "events", "PullMessages.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
