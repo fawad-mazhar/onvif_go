@@ -17,10 +17,34 @@ func StartHTTPServer(cfg *config.ServiceContext) error {
 	// Initialize logging
 	logger.InitLogger(logger.INFO)
 
-	// Create HTTP server for ONVIF
+	// Create HTTP server for ONVIF device service
 	http.HandleFunc("/onvif/device_service", func(w http.ResponseWriter, r *http.Request) {
 		// Handle ONVIF requests
-		handleHTTPONVIFRequest(w, r, cfg)
+		handleHTTPONVIFRequest(w, r, cfg, "device_service")
+	})
+
+	// Create HTTP server for ONVIF media service
+	http.HandleFunc("/onvif/media_service", func(w http.ResponseWriter, r *http.Request) {
+		// Handle ONVIF requests
+		handleHTTPONVIFRequest(w, r, cfg, "media_service")
+	})
+
+	// Create HTTP server for ONVIF PTZ service
+	http.HandleFunc("/onvif/ptz_service", func(w http.ResponseWriter, r *http.Request) {
+		// Handle ONVIF requests
+		handleHTTPONVIFRequest(w, r, cfg, "ptz_service")
+	})
+
+	// Create HTTP server for ONVIF events service
+	http.HandleFunc("/onvif/events_service", func(w http.ResponseWriter, r *http.Request) {
+		// Handle ONVIF requests
+		handleHTTPONVIFRequest(w, r, cfg, "events_service")
+	})
+
+	// Create HTTP server for ONVIF deviceio service
+	http.HandleFunc("/onvif/deviceio_service", func(w http.ResponseWriter, r *http.Request) {
+		// Handle ONVIF requests
+		handleHTTPONVIFRequest(w, r, cfg, "deviceio_service")
 	})
 
 	// Start the HTTP server
@@ -36,7 +60,7 @@ func StartHTTPServer(cfg *config.ServiceContext) error {
 }
 
 // handleHTTPONVIFRequest handles HTTP ONVIF requests by wrapping the CGI-based ONVIF server
-func handleHTTPONVIFRequest(w http.ResponseWriter, r *http.Request, cfg *config.ServiceContext) {
+func handleHTTPONVIFRequest(w http.ResponseWriter, r *http.Request, cfg *config.ServiceContext, serviceName string) {
 	// Read the request body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -45,38 +69,38 @@ func handleHTTPONVIFRequest(w http.ResponseWriter, r *http.Request, cfg *config.
 		return
 	}
 
-	// Create a command to run the ONVIF server
-	cmd := exec.Command(os.Args[0])
+	// Create a command to run the ONVIF server with the service name as an argument
+	cmd := exec.Command(os.Args[0], serviceName)
 	
 	// Set environment variables that the ONVIF server expects
 	cmd.Env = append(os.Environ(),
 		"REQUEST_METHOD="+r.Method,
 		"CONTENT_LENGTH="+fmt.Sprintf("%d", len(body)))
-	
+
 	// Set the request body as stdin
 	cmd.Stdin = bytes.NewReader(body)
-	
+
 	// Capture stdout
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
-	
+
 	// Capture stderr
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	
+
 	// Run the command
 	if err := cmd.Run(); err != nil {
 		logger.Warn("ONVIF server execution failed: %v, stderr: %s", err, stderr.String())
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// Parse the output to separate headers from body
 	output := stdout.Bytes()
-	
+
 	// Set default content type
 	w.Header().Set("Content-Type", "application/soap+xml")
-	
+
 	// Check if output contains HTTP headers
 	if bytes.Contains(output, []byte("Content-Type:")) {
 		// Split headers and body

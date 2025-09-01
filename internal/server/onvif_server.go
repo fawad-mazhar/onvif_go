@@ -23,6 +23,12 @@ func StartONVIFServer(cfg *config.ServiceContext) error {
 	// Configuration is passed as parameter
 	// Set up service contexts with converted types
 	
+	// Get service name from command line arguments
+	serviceName := "device_service"
+	if len(os.Args) > 1 {
+		serviceName = os.Args[1]
+	}
+	
 	// Parse the request method
 	requestMethod := os.Getenv("REQUEST_METHOD")
 	if requestMethod != "POST" {
@@ -74,101 +80,131 @@ func StartONVIFServer(cfg *config.ServiceContext) error {
 	}
 	
 	// Route the request to the appropriate service handler
-	switch {
-	case strings.Contains(soapAction, "GetServices"):
-		deviceService := &device.ServiceContext{
-			Port: cfg.Port,
+	switch serviceName {
+	case "device_service":
+		switch {
+		case strings.Contains(soapAction, "GetServices"):
+			deviceService := &device.ServiceContext{
+				Port: cfg.Port,
+			}
+			deviceService.GetServices()
+		case strings.Contains(soapAction, "GetDeviceInformation"):
+			deviceService := &device.ServiceContext{
+				Port:         cfg.Port,
+				Manufacturer: cfg.Manufacturer,
+				Model:        cfg.Model,
+				FirmwareVer:  cfg.FirmwareVer,
+				SerialNum:    cfg.SerialNum,
+				HardwareId:   cfg.HardwareId,
+				Scopes:       cfg.Scopes,
+				PTZEnable:    cfg.PTZNode.Enable == 1,
+				Media2Enable: cfg.AdvEnableMedia2 == 1,
+			}
+			deviceService.GetDeviceInformation()
+		case strings.Contains(soapAction, "GetCapabilities"):
+			deviceService := &device.ServiceContext{
+				Port: cfg.Port,
+			}
+			deviceService.GetCapabilities()
+		case strings.Contains(soapAction, "GetScopes"):
+			deviceService := &device.ServiceContext{
+				Port: cfg.Port,
+				Scopes: cfg.Scopes,
+			}
+			deviceService.GetScopes()
+		case strings.Contains(soapAction, "SystemReboot"):
+			deviceService := &device.ServiceContext{}
+			deviceService.SystemReboot()
+		case strings.Contains(soapAction, "GetSystemDateAndTime"):
+			deviceService := &device.ServiceContext{}
+			deviceService.GetSystemDateAndTime()
+		case strings.Contains(soapAction, "GetUsers"):
+			deviceService := &device.ServiceContext{}
+			deviceService.GetUsers()
+		case strings.Contains(soapAction, "GetWsdlUrl"):
+			deviceService := &device.ServiceContext{}
+			deviceService.GetWsdlUrl()
+		case strings.Contains(soapAction, "GetNetworkInterfaces"):
+			deviceService := &device.ServiceContext{}
+			deviceService.GetNetworkInterfaces()
+		case strings.Contains(soapAction, "GetDiscoveryMode"):
+			deviceService := &device.ServiceContext{}
+			deviceService.GetDiscoveryMode()
+		default:
+			logger.Warn("Unsupported SOAP action: %s", soapAction)
+			handleError("Unsupported SOAP action")
 		}
-		deviceService.GetServices()
-	case strings.Contains(soapAction, "GetDeviceInformation"):
-		deviceService := &device.ServiceContext{
-			Port:         cfg.Port,
-			Manufacturer: cfg.Manufacturer,
-			Model:        cfg.Model,
-			FirmwareVer:  cfg.FirmwareVer,
-			SerialNum:    cfg.SerialNum,
-			HardwareId:   cfg.HardwareId,
-			Scopes:       cfg.Scopes,
-			PTZEnable:    cfg.PTZNode.Enable == 1,
-			Media2Enable: cfg.AdvEnableMedia2 == 1,
+	case "media_service":
+		switch {
+		case strings.Contains(soapAction, "GetServiceCapabilities"):
+			mediaService := &media.ServiceContext{
+				Port: cfg.Port,
+			}
+			mediaService.GetServiceCapabilities()
+		case strings.Contains(soapAction, "GetProfiles"):
+			mediaService := &media.ServiceContext{
+				Port: cfg.Port,
+				Profiles: convertMediaProfiles(cfg.Profiles),
+			}
+			mediaService.GetProfiles()
+		default:
+			logger.Warn("Unsupported SOAP action: %s", soapAction)
+			handleError("Unsupported SOAP action")
 		}
-		deviceService.GetDeviceInformation()
-	case strings.Contains(soapAction, "GetCapabilities"):
-		deviceService := &device.ServiceContext{
-			Port: cfg.Port,
+	case "ptz_service":
+		switch {
+		case strings.Contains(soapAction, "GetServiceCapabilities"):
+			ptzService := &ptz.ServiceContext{
+				Port: cfg.Port,
+			}
+			ptzService.GetServiceCapabilities()
+		case strings.Contains(soapAction, "GetNodes"):
+			ptzService := &ptz.ServiceContext{
+				Port: cfg.Port,
+				PTZNodes: convertPTZNodes(cfg.PTZNode),
+			}
+			ptzService.GetNodes()
+		default:
+			logger.Warn("Unsupported SOAP action: %s", soapAction)
+			handleError("Unsupported SOAP action")
 		}
-		deviceService.GetCapabilities()
-	case strings.Contains(soapAction, "GetScopes"):
-		deviceService := &device.ServiceContext{
-			Port: cfg.Port,
-			Scopes: cfg.Scopes,
+	case "events_service":
+		switch {
+		case strings.Contains(soapAction, "GetServiceCapabilities"):
+			eventsService := &events.ServiceContext{
+				Port: cfg.Port,
+			}
+			eventsService.GetServiceCapabilities()
+		case strings.Contains(soapAction, "GetEventProperties"):
+			eventsService := &events.ServiceContext{
+				Port: cfg.Port,
+				Events: convertEvents(cfg.Events),
+			}
+			eventsService.GetEventProperties()
+		default:
+			logger.Warn("Unsupported SOAP action: %s", soapAction)
+			handleError("Unsupported SOAP action")
 		}
-		deviceService.GetScopes()
-	case strings.Contains(soapAction, "SystemReboot"):
-		deviceService := &device.ServiceContext{}
-		deviceService.SystemReboot()
-	case strings.Contains(soapAction, "GetSystemDateAndTime"):
-		deviceService := &device.ServiceContext{}
-		deviceService.GetSystemDateAndTime()
-	case strings.Contains(soapAction, "GetUsers"):
-		deviceService := &device.ServiceContext{}
-		deviceService.GetUsers()
-	case strings.Contains(soapAction, "GetWsdlUrl"):
-		deviceService := &device.ServiceContext{}
-		deviceService.GetWsdlUrl()
-	case strings.Contains(soapAction, "GetNetworkInterfaces"):
-		deviceService := &device.ServiceContext{}
-		deviceService.GetNetworkInterfaces()
-	case strings.Contains(soapAction, "GetDiscoveryMode"):
-		deviceService := &device.ServiceContext{}
-		deviceService.GetDiscoveryMode()
-	case strings.Contains(soapAction, "GetServiceCapabilities") && strings.Contains(soapAction, "media"):
-		mediaService := &media.ServiceContext{
-			Port: cfg.Port,
+	case "deviceio_service":
+		switch {
+		case strings.Contains(soapAction, "GetServiceCapabilities"):
+			deviceioService := &deviceio.ServiceContext{
+				Port: cfg.Port,
+			}
+			deviceioService.GetServiceCapabilities()
+		case strings.Contains(soapAction, "GetRelayOutputs"):
+			deviceioService := &deviceio.ServiceContext{
+				Port: cfg.Port,
+				RelayOutputs: convertRelayOutputs(cfg.RelayOutputs),
+			}
+			deviceioService.GetRelayOutputs()
+		default:
+			logger.Warn("Unsupported SOAP action: %s", soapAction)
+			handleError("Unsupported SOAP action")
 		}
-		mediaService.GetServiceCapabilities()
-	case strings.Contains(soapAction, "GetProfiles"):
-		mediaService := &media.ServiceContext{
-			Port: cfg.Port,
-			Profiles: convertMediaProfiles(cfg.Profiles),
-		}
-		mediaService.GetProfiles()
-	case strings.Contains(soapAction, "GetServiceCapabilities") && strings.Contains(soapAction, "ptz"):
-		ptzService := &ptz.ServiceContext{
-			Port: cfg.Port,
-		}
-		ptzService.GetServiceCapabilities()
-	case strings.Contains(soapAction, "GetNodes"):
-		ptzService := &ptz.ServiceContext{
-			Port: cfg.Port,
-			PTZNodes: convertPTZNodes(cfg.PTZNode),
-		}
-		ptzService.GetNodes()
-	case strings.Contains(soapAction, "GetServiceCapabilities") && strings.Contains(soapAction, "events"):
-		eventsService := &events.ServiceContext{
-			Port: cfg.Port,
-		}
-		eventsService.GetServiceCapabilities()
-	case strings.Contains(soapAction, "GetEventProperties"):
-		eventsService := &events.ServiceContext{
-			Port: cfg.Port,
-			Events: convertEvents(cfg.Events),
-		}
-		eventsService.GetEventProperties()
-	case strings.Contains(soapAction, "GetServiceCapabilities") && strings.Contains(soapAction, "deviceio"):
-		deviceioService := &deviceio.ServiceContext{
-			Port: cfg.Port,
-		}
-		deviceioService.GetServiceCapabilities()
-	case strings.Contains(soapAction, "GetRelayOutputs"):
-		deviceioService := &deviceio.ServiceContext{
-			Port: cfg.Port,
-			RelayOutputs: convertRelayOutputs(cfg.RelayOutputs),
-		}
-		deviceioService.GetRelayOutputs()
 	default:
-		logger.Warn("Unsupported SOAP action: %s", soapAction)
-		handleError("Unsupported SOAP action")
+		logger.Warn("Unsupported service: %s", serviceName)
+		handleError("Unsupported service")
 	}
 	return nil
 }
