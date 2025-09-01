@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 	
-	"github.com/fawad-mazhar/onvif_go/logger"
-	"github.com/fawad-mazhar/onvif_go/utils"
+	"github.com/fawad-mazhar/onvif-go/internal/logger"
+	"github.com/fawad-mazhar/onvif-go/internal/utils"
 )
 
 // UsernameToken represents the WS-Security username token

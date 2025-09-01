@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	
-	"github.com/fawad-mazhar/onvif_go/xml"
+	"github.com/fawad-mazhar/onvif-go/internal/xml"
 )
 
 // ServiceContext holds the configuration and state for the events service

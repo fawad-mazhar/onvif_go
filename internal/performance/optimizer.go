@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"time"
 	
-	"github.com/fawad-mazhar/onvif_go/logger"
+	"github.com/fawad-mazhar/onvif-go/internal/logger"
 )
 
 // Optimizer provides performance optimization features for resource-constrained devices

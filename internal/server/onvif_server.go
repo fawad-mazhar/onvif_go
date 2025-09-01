@@ -5,14 +5,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/fawad-mazhar/onvif_go/auth"
-	"github.com/fawad-mazhar/onvif_go/config"
-	"github.com/fawad-mazhar/onvif_go/logger"
-	"github.com/fawad-mazhar/onvif_go/services/device"
-	"github.com/fawad-mazhar/onvif_go/services/deviceio"
-	"github.com/fawad-mazhar/onvif_go/services/events"
-	"github.com/fawad-mazhar/onvif_go/services/media"
-	"github.com/fawad-mazhar/onvif_go/services/ptz"
+	"github.com/fawad-mazhar/onvif-go/internal/auth"
+	"github.com/fawad-mazhar/onvif-go/internal/config"
+	"github.com/fawad-mazhar/onvif-go/internal/logger"
+	"github.com/fawad-mazhar/onvif-go/pkg/services/device"
+	"github.com/fawad-mazhar/onvif-go/pkg/services/deviceio"
+	"github.com/fawad-mazhar/onvif-go/pkg/services/events"
+	"github.com/fawad-mazhar/onvif-go/pkg/services/media"
+	"github.com/fawad-mazhar/onvif-go/pkg/services/ptz"
 )
 
 func StartONVIFServer(cfg *config.ServiceContext) error {

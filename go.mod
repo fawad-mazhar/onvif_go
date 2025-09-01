@@ -1,3 +1,3 @@
-module github.com/fawad-mazhar/onvif_go
+module github.com/fawad-mazhar/onvif-go
 
 go 1.19

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 	
-	"github.com/fawad-mazhar/onvif_go/config"
-	"github.com/fawad-mazhar/onvif_go/logger"
-	"github.com/fawad-mazhar/onvif_go/utils"
+	"github.com/fawad-mazhar/onvif-go/internal/config"
+	"github.com/fawad-mazhar/onvif-go/internal/logger"
+	"github.com/fawad-mazhar/onvif-go/internal/utils"
 )
 
 func StartNotificationServer(cfg *config.ServiceContext) error {

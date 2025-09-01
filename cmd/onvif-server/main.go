@@ -6,9 +6,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fawad-mazhar/onvif_go/config"
-	"github.com/fawad-mazhar/onvif_go/logger"
-	"github.com/fawad-mazhar/onvif_go/server"
+	"github.com/fawad-mazhar/onvif-go/internal/config"
+	"github.com/fawad-mazhar/onvif-go/internal/logger"
+	"github.com/fawad-mazhar/onvif-go/internal/server"
 )
 
 func main() {

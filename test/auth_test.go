@@ -3,7 +3,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/fawad-mazhar/onvif_go/auth"
+	"github.com/fawad-mazhar/onvif-go/internal/auth"
 )
 
 func TestUsernameTokenValidation(t *testing.T) {

@@ -5,12 +5,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/fawad-mazhar/onvif_go/config"
-	"github.com/fawad-mazhar/onvif_go/services/device"
-	"github.com/fawad-mazhar/onvif_go/services/events"
-	"github.com/fawad-mazhar/onvif_go/services/media"
-	"github.com/fawad-mazhar/onvif_go/services/ptz"
-	"github.com/fawad-mazhar/onvif_go/services/deviceio"
+	"github.com/fawad-mazhar/onvif-go/internal/config"
+	"github.com/fawad-mazhar/onvif-go/pkg/services/device"
+	"github.com/fawad-mazhar/onvif-go/pkg/services/events"
+	"github.com/fawad-mazhar/onvif-go/pkg/services/media"
+	"github.com/fawad-mazhar/onvif-go/pkg/services/ptz"
+	"github.com/fawad-mazhar/onvif-go/pkg/services/deviceio"
 )
 
 func TestConfigLoading(t *testing.T) {

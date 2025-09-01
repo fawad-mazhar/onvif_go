@@ -20,20 +20,23 @@ The server is organized into modules that mirror the ONVIF service structure:
 
 ```
 onvif-go/
-├── config/          # Configuration parsing
-├── logger/          # Logging system
-├── utils/           # Utility functions
-├── xml/             # XML processing
-├── services/
-│   ├── device/      # Device service methods
-│   ├── media/      # Media service methods
-│   ├── ptz/        # PTZ service methods
-│   ├── events/     # Events service methods
-│   └── deviceio/   # DeviceIO service methods
-└── server/         # Server implementations
-    ├── onvif_server.go      # Main ONVIF server (CGI)
-    ├── wsd_server.go        # Web Service Discovery server
-    └── notification_server.go # Event notification server
+├── cmd/
+│   └── onvif-server/      # Main application
+├── internal/
+│   ├── config/            # Configuration parsing
+│   ├── logger/            # Logging system
+│   ├── auth/             # Authentication system
+│   ├── utils/            # Utility functions
+│   ├── xml/              # XML processing
+│   ├── performance/      # Performance optimization
+│   └── server/           # Server implementations
+└── pkg/
+    └── services/
+        ├── device/       # Device service methods
+        ├── media/        # Media service methods
+        ├── ptz/          # PTZ service methods
+        ├── events/       # Events service methods
+        └── deviceio/     # DeviceIO service methods
 ```
 
 ## Building
@@ -47,9 +50,9 @@ make
 Or manually:
 
 ```bash
-go build -o onvif_simple_server ./main.go
-go build -o wsd_simple_server ./server/wsd_server.go
-go build -o onvif_notify_server ./server/notification_server.go
+go build -o onvif_simple_server ./cmd/onvif-server
+go build -o wsd_simple_server ./cmd/onvif-server/server/wsd_server.go
+go build -o onvif_notify_server ./cmd/onvif-server/server/notification_server.go
 ```
 
 ## Usage
