@@ -28,10 +28,6 @@ test:
 test-coverage:
 	go test -cover ./test/...
 
-# Clean build artifacts
-clean:
-	rm -rf $(BUILD_DIR)
-
 # Create build directory
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -47,10 +43,8 @@ help:
 	@echo "  all             - Build all binaries (default target)"
 	@echo "  build           - Build ONVIF server"
 	@echo "  onvif-server    - Build main ONVIF server"
-	@echo "  install         - Install binary to /usr/local/bin"
 	@echo "  test            - Run all tests"
 	@echo "  test-coverage   - Run tests with coverage report"
-	@echo "  clean           - Remove build artifacts"
 	@echo "  help            - Display this help message"
 
 # Phony targets

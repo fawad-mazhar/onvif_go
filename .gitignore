@@ -30,7 +30,7 @@ node_modules
 dist
 dist-ssr
 *.local
-bin/
+bin/*
 !test/cloud/bin/
 .pnpm-store
 
