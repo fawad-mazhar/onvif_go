@@ -1,0 +1,89 @@
+# ONVIF Simple Server Configuration Example
+# This is an example configuration file for the ONVIF Go server implementation
+
+# Server ports
+# The main CGI server port
+port = 8080
+
+# The WSD discovery server port (default ONVIF port is 3702)
+wsd_port = 3702
+
+# The notification server port
+notification_port = 8081
+
+# Device information
+manufacturer = "YourManufacturer"
+model = "YourModel"
+firmware_version = "1.0.0"
+serial_number = "YourSerialNumber"
+hardware_id = "YourHardwareId"
+
+# Authentication credentials
+# If username and password are empty, authentication is disabled
+username = "admin"
+password = "your_password"
+
+# Device UUID (should be unique for each device)
+uuid = "12345678-1234-1234-1234-123456789012"
+
+# Media profiles configuration
+[profiles]
+  [profiles.profile1]
+  name = "Profile1"
+  token = "profile1_token"
+  video_source = "video_source1"
+  video_encoder = "video_encoder1"
+  ptz_node = "ptz_node1"
+  
+  [profiles.profile2]
+  name = "Profile2"
+  token = "profile2_token"
+  video_source = "video_source2"
+  video_encoder = "video_encoder2"
+  ptz_node = "ptz_node2"
+
+# PTZ nodes configuration
+[ptz_nodes]
+  [ptz_nodes.node1]
+  name = "PTZ Node 1"
+  token = "ptz_node1"
+  pan_range = 360
+  tilt_range = 180
+  zoom_range = 100
+  
+  [ptz_nodes.node2]
+  name = "PTZ Node 2"
+  token = "ptz_node2"
+  pan_range = 360
+  tilt_range = 180
+  zoom_range = 100
+
+# Events configuration
+[events]
+  [events.motion]
+  topic = "tns1:VideoSource/MotionAlarm"
+  description = "Motion alarm"
+  type = "tt:VideoSource/MotionAlarm"
+  
+  [events.tampering]
+  topic = "tns1:VideoSource/ImageTampering"
+  description = "Image tampering detection"
+  type = "tt:VideoSource/ImageTampering"
+
+# Relay outputs configuration
+[relay_outputs]
+  [relay_outputs.relay1]
+  name = "Relay Output 1"
+  token = "relay1"
+  idle_state = "open"
+  
+  [relay_outputs.relay2]
+  name = "Relay Output 2"
+  token = "relay2"
+  idle_state = "closed"
+
+# Scopes configuration
+[scopes]
+  scope1 = "onvif://www.onvif.org/name/YourDeviceName"
+  scope2 = "onvif://www.onvif.org/location/YourLocation"
+  scope3 = "onvif://www.onvif.org/hardware/YourHardwareId"
