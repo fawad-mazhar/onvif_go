@@ -237,12 +237,21 @@ func parseSOAPAction(soapRequest string) string {
 		if actionStart == -1 {
 			return ""
 		}
+		actionStart += len("<SOAP-ENV:Body>")
+	} else {
+		actionStart += len("<soap:Body>")
 	}
 	
-	// Extract the first tag after <soap:Body> or <SOAP-ENV:Body>
-	actionStart += 10
-	if strings.Contains(soapRequest[actionStart:], "<soap:Body>") {
-		actionStart += 12
+	// Skip whitespace and newlines
+	for actionStart < len(soapRequest) && (soapRequest[actionStart] == ' ' || 
+		soapRequest[actionStart] == '\n' || soapRequest[actionStart] == '\r' || 
+		soapRequest[actionStart] == '\t') {
+		actionStart++
+	}
+	
+	// Find the next opening tag
+	if actionStart >= len(soapRequest) || soapRequest[actionStart] != '<' {
+		return ""
 	}
 	
 	actionEnd := strings.Index(soapRequest[actionStart:], ">")
@@ -251,20 +260,23 @@ func parseSOAPAction(soapRequest string) string {
 	}
 	
 	// Extract the tag name
-	tag := soapRequest[actionStart:actionStart+actionEnd+1]
+	tag := soapRequest[actionStart+1:actionStart+actionEnd]
 	
 	// Remove attributes if any
 	if strings.Contains(tag, " ") {
 		tag = tag[:strings.Index(tag, " ")]
 	}
 	
-	// Remove opening bracket
-	tag = strings.TrimPrefix(tag, "<")
+	// Remove namespace prefix for comparison
+	if strings.Contains(tag, ":") {
+		parts := strings.Split(tag, ":")
+		if len(parts) > 1 {
+			tag = parts[len(parts)-1]
+		}
+	}
 	
-	// Remove closing bracket or slash
-	if strings.HasSuffix(tag, ">") {
-		tag = tag[:len(tag)-1]
-	} else if strings.HasSuffix(tag, "/") {
+	// Handle self-closing tags
+	if strings.HasSuffix(tag, "/") {
 		tag = tag[:len(tag)-1]
 	}
 	

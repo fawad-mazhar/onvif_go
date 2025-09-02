@@ -13,12 +13,16 @@ LDFLAGS := -ldflags "-X main.version=$(VERSION)"
 # Default target
 all: help
 
-# Build all binaries
-build: onvif-server
+# Create build directory
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
 # Build main ONVIF server
-onvif-server:
+onvif-server: $(BUILD_DIR)
 	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_DIR)/main.go
+
+# Build all binaries
+build: onvif-server
 
 # Run tests
 test:
@@ -27,13 +31,6 @@ test:
 # Run tests with coverage
 test-coverage:
 	go test -cover ./test/...
-
-# Create build directory
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
-
-# Build with build directory dependency
-build: $(BUILD_DIR)
 
 # Help target
 help:
