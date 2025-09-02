@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"
+               xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing"
+               xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl">
+  <soap:Header>
+    <wsa:Action>http://www.onvif.org/ver20/ptz/wsdl/GetNodes</wsa:Action>
+    <wsa:MessageID>uuid:12345678-1234-1234-1234-123456789015</wsa:MessageID>
+    <wsa:To>http://localhost:8080/onvif/ptz_service</wsa:To>
+  </soap:Header>
+  <soap:Body>
+    <tptz:GetNodes/>
+  </soap:Body>
+</soap:Envelope>
