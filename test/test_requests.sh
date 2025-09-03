@@ -54,7 +54,38 @@ cleanup() {
         wait $SERVER_PID 2>/dev/null
         echo "✅ Server stopped (PID: $SERVER_PID)"
     fi
+    
+    # Clean up any remaining processes on our ports
+    for port in 8080 8082 3703; do
+        pids=$(lsof -ti :$port 2>/dev/null)
+        if [ ! -z "$pids" ]; then
+            echo "🧹 Cleaning up processes on port $port..."
+            echo $pids | xargs kill -9 2>/dev/null || true
+        fi
+    done
+    
     exit ${1:-0}
+}
+
+# Function to check and clear ports before starting
+clear_ports() {
+    echo "🔍 Checking for processes using required ports..."
+    ports_cleared=false
+    
+    for port in 8080 8082 3703; do
+        pids=$(lsof -ti :$port 2>/dev/null)
+        if [ ! -z "$pids" ]; then
+            echo "⚠️  Port $port is in use by processes: $pids"
+            echo "🧹 Clearing port $port..."
+            echo $pids | xargs kill -9 2>/dev/null || true
+            ports_cleared=true
+        fi
+    done
+    
+    if [ "$ports_cleared" = true ]; then
+        echo "⏳ Waiting for ports to be released..."
+        sleep 3
+    fi
 }
 
 # Trap signals to ensure cleanup
@@ -93,6 +124,9 @@ if curl -s --connect-timeout 1 "$SERVER_URL" > /dev/null 2>&1; then
     echo "⚠️ Server already running at $SERVER_URL"
     echo "Using existing server instance..."
 else
+    # Clear any processes on required ports
+    clear_ports
+    
     # Start the ONVIF server
     echo "🚀 Starting ONVIF server..."
     echo "   Using default config: internal/config/onvif_simple_server.conf"
@@ -317,48 +351,6 @@ if [ "$QUICK_TEST" != true ]; then
     
     echo ""
     
-    # Test CGI Mode (if running as CGI subprocess)
-    echo "🔧 Testing CGI Mode"
-    echo "=================="
-    echo "CGI mode test (service-specific execution):"
-    echo ""
-    
-    # Check if we started our own server or using existing one
-    if [ ! -z "$SERVER_PID" ]; then
-        # We started our own server, we can test CGI mode by temporarily stopping it
-        echo "Temporarily stopping server for CGI test..."
-        kill $SERVER_PID 2>/dev/null
-        wait $SERVER_PID 2>/dev/null
-        sleep 2
-        
-        # Create a simple SOAP request for CGI testing
-        cat > /tmp/cgi_test.xml << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"
-               xmlns:tds="http://www.onvif.org/ver10/device/wsdl">
-  <soap:Body>
-    <tds:GetDeviceInformation/>
-  </soap:Body>
-</soap:Envelope>
-EOF
-        
-        echo "Running: echo 'SOAP request' | CONTENT_LENGTH=150 REQUEST_METHOD=POST ../bin/onvif_server device_service"
-        echo "Result:"
-        # Run the server binary from the project root directory to ensure proper config file loading
-        (cd .. && echo '<?xml version="1.0" encoding="UTF-8"?><soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body><tds:GetDeviceInformation/></soap:Body></soap:Envelope>' | \
-        CONTENT_LENGTH=150 REQUEST_METHOD=POST ./bin/onvif_server device_service)
-        
-        # Restart the server
-        echo "Restarting server..."
-        (cd .. && ./bin/onvif_server) > /dev/null 2>&1 &
-        SERVER_PID=$!
-        sleep 2
-    else
-        echo "⚠️ Using existing server instance - skipping CGI test to avoid port conflicts."
-        echo "To test CGI mode, stop the existing server and run this script again."
-    fi
-    
-    echo ""
 fi
 
 # Summary and next steps

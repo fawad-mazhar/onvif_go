@@ -5,7 +5,11 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/fawad-mazhar/onvif-go/internal/auth"
 	"github.com/fawad-mazhar/onvif-go/internal/config"
 	"github.com/fawad-mazhar/onvif-go/internal/logger"
@@ -16,105 +20,68 @@ import (
 	"github.com/fawad-mazhar/onvif-go/pkg/services/ptz"
 )
 
-// StartHTTPServer starts the integrated HTTP ONVIF server
+// StartHTTPServer starts the integrated HTTP ONVIF server with Chi router and CORS
 func StartHTTPServer(cfg *config.ServiceContext) error {
 	// Initialize logging
 	logger.InitLogger(logger.INFO)
 
-	// Create HTTP handlers for all ONVIF services
-	http.HandleFunc("/onvif/device_service", func(w http.ResponseWriter, r *http.Request) {
-		handleONVIFRequest(w, r, cfg, "device_service")
+	// Create Chi router
+	r := chi.NewRouter()
+
+	// Add middleware
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Timeout(60 * time.Second))
+
+	// Configure CORS
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"}, // In production, specify allowed origins
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "SOAPAction"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300, // Maximum value not ignored by any major browsers
+	}))
+
+	// Create ONVIF service handlers
+	r.Route("/onvif", func(r chi.Router) {
+		// Add custom middleware for ONVIF requests
+		r.Use(onvifMiddleware(cfg))
+		
+		// ONVIF service endpoints
+		r.Post("/device_service", createONVIFHandler(cfg, "device_service"))
+		r.Post("/media_service", createONVIFHandler(cfg, "media_service"))
+		r.Post("/ptz_service", createONVIFHandler(cfg, "ptz_service"))
+		r.Post("/events_service", createONVIFHandler(cfg, "events_service"))
+		r.Post("/deviceio_service", createONVIFHandler(cfg, "deviceio_service"))
 	})
 
-	http.HandleFunc("/onvif/media_service", func(w http.ResponseWriter, r *http.Request) {
-		handleONVIFRequest(w, r, cfg, "media_service")
+	// Add health check endpoint
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `{"status":"healthy","timestamp":"%s","service":"onvif-server"}`, time.Now().Format(time.RFC3339))
 	})
 
-	http.HandleFunc("/onvif/ptz_service", func(w http.ResponseWriter, r *http.Request) {
-		handleONVIFRequest(w, r, cfg, "ptz_service")
-	})
-
-	http.HandleFunc("/onvif/events_service", func(w http.ResponseWriter, r *http.Request) {
-		handleONVIFRequest(w, r, cfg, "events_service")
-	})
-
-	http.HandleFunc("/onvif/deviceio_service", func(w http.ResponseWriter, r *http.Request) {
-		handleONVIFRequest(w, r, cfg, "deviceio_service")
+	// Add info endpoint
+	r.Get("/info", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `{"manufacturer":"%s","model":"%s","firmware":"%s","serial":"%s"}`,
+			cfg.Manufacturer, cfg.Model, cfg.FirmwareVer, cfg.SerialNum)
 	})
 
 	// Start the HTTP server
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	logger.Info("Starting integrated HTTP ONVIF server on port %d", cfg.Port)
 	logger.Info("ONVIF server listening on address: %s", addr)
-	return http.ListenAndServe(addr, nil)
+	logger.Info("Health check available at: http://localhost:%d/health", cfg.Port)
+	logger.Info("Device info available at: http://localhost:%d/info", cfg.Port)
+	return http.ListenAndServe(addr, r)
 }
 
-// handleONVIFRequest handles HTTP ONVIF requests directly
-func handleONVIFRequest(w http.ResponseWriter, r *http.Request, cfg *config.ServiceContext, serviceName string) {
-	// Only accept POST requests
-	if r.Method != "POST" {
-		logger.Warn("Invalid request method: %s", r.Method)
-		http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Read the SOAP request from the request body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		logger.Warn("Failed to read request body: %v", err)
-		http.Error(w, "Failed to read request body", http.StatusBadRequest)
-		return
-	}
-
-	soapRequest := string(body)
-	if soapRequest == "" {
-		logger.Warn("Empty SOAP request")
-		sendSOAPError(w, "Empty SOAP request")
-		return
-	}
-	
-	// Parse the SOAP action from the request
-	soapAction := parseSOAPAction(soapRequest)
-	if soapAction == "" {
-		logger.Warn("Failed to parse SOAP action")
-		sendSOAPError(w, "Failed to parse SOAP action")
-		return
-	}
-	
-	// Validate authentication if required
-	if cfg.User != "" && cfg.Password != "" {
-		usernameToken, err := auth.ParseSOAPHeader(soapRequest)
-		if err != nil {
-			logger.Warn("Failed to parse SOAP header: %v", err)
-			sendSOAPAuthError(w)
-			return
-		}
-		
-		authContext := &auth.ServiceContext{
-			Username: cfg.User,
-			Password: cfg.Password,
-		}
-		
-		if !authContext.ValidateUsernameToken(usernameToken) {
-			logger.Warn("Authentication failed")
-			sendSOAPAuthError(w)
-			return
-		}
-		
-		// Validate timestamp to prevent replay attacks
-		if !auth.ValidateNonceTimestamp(usernameToken.Created, 300) { // 5 minutes max age
-			logger.Warn("Nonce timestamp validation failed")
-			sendSOAPError(w, "Nonce timestamp validation failed")
-			return
-		}
-	}
-
-	// Set the content type for SOAP response
-	w.Header().Set("Content-Type", "application/soap+xml; charset=utf-8")
-
-	// Route the request to the appropriate service handler
-	processSOAPRequest(w, soapAction, serviceName, cfg)
-}
 
 // processSOAPRequest routes SOAP requests to the appropriate service handler
 func processSOAPRequest(w http.ResponseWriter, soapAction, serviceName string, cfg *config.ServiceContext) {
@@ -282,6 +249,80 @@ func sendSOAPAuthError(w http.ResponseWriter) {
     </soap:Fault>
   </soap:Body>
 </soap:Envelope>`)
+}
+
+// onvifMiddleware provides ONVIF-specific middleware
+func onvifMiddleware(cfg *config.ServiceContext) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Set SOAP-specific headers
+			w.Header().Set("Content-Type", "application/soap+xml; charset=utf-8")
+			
+			// Log ONVIF requests
+			logger.Debug("ONVIF request: %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+			
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// createONVIFHandler creates a handler function for ONVIF services
+func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Read the SOAP request from the request body
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			logger.Warn("Failed to read request body: %v", err)
+			http.Error(w, "Failed to read request body", http.StatusBadRequest)
+			return
+		}
+
+		soapRequest := string(body)
+		if soapRequest == "" {
+			logger.Warn("Empty SOAP request")
+			sendSOAPError(w, "Empty SOAP request")
+			return
+		}
+		
+		// Parse the SOAP action from the request
+		soapAction := parseSOAPAction(soapRequest)
+		if soapAction == "" {
+			logger.Warn("Failed to parse SOAP action")
+			sendSOAPError(w, "Failed to parse SOAP action")
+			return
+		}
+		
+		// Validate authentication if required
+		if cfg.User != "" && cfg.Password != "" {
+			usernameToken, err := auth.ParseSOAPHeader(soapRequest)
+			if err != nil {
+				logger.Warn("Failed to parse SOAP header: %v", err)
+				sendSOAPAuthError(w)
+				return
+			}
+			
+			authContext := &auth.ServiceContext{
+				Username: cfg.User,
+				Password: cfg.Password,
+			}
+			
+			if !authContext.ValidateUsernameToken(usernameToken) {
+				logger.Warn("Authentication failed")
+				sendSOAPAuthError(w)
+				return
+			}
+			
+			// Validate timestamp to prevent replay attacks
+			if !auth.ValidateNonceTimestamp(usernameToken.Created, 300) { // 5 minutes max age
+				logger.Warn("Nonce timestamp validation failed")
+				sendSOAPError(w, "Nonce timestamp validation failed")
+				return
+			}
+		}
+
+		// Route the request to the appropriate service handler
+		processSOAPRequest(w, soapAction, serviceName, cfg)
+	}
 }
 
 // parseSOAPAction extracts the SOAP action from the request
