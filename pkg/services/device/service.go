@@ -29,8 +29,6 @@ type Profile struct {
 	Type string
 }
 
-
-
 // HTTP-compatible methods that write to http.ResponseWriter
 
 // GetServicesHTTP handles the GetServices ONVIF device service method via HTTP

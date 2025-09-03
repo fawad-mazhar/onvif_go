@@ -26,7 +26,6 @@ type Profile struct {
 	AudioDecoder string
 }
 
-
 // createProfileElement creates an XML element for a profile
 func (s *ServiceContext) createProfileElement(profile Profile, token string) string {
 	// Create video source configuration

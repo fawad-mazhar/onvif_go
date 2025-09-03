@@ -139,4 +139,3 @@ scope.1 = "onvif://www.onvif.org/location/TestLocation"
 		t.Errorf("Expected 2 scopes, got %d", len(cfg.Scopes))
 	}
 }
-

@@ -19,7 +19,6 @@ type Event struct {
 	Producer string
 }
 
-
 // createEventElement creates an XML element for an event
 func (s *ServiceContext) createEventElement(event Event) string {
 	// Create event element

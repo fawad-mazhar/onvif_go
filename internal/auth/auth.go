@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	
+
 	"github.com/fawad-mazhar/onvif-go/internal/logger"
 )
 
@@ -145,4 +145,3 @@ func ValidateNonceTimestamp(created string, maxAgeSeconds int) bool {
 
 	return true
 }
-

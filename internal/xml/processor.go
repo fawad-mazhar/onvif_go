@@ -37,7 +37,6 @@ func ProcessTemplate(filename string, replacements map[string]string) (string, e
 	return result.String(), nil
 }
 
-
 // FileExists checks if a file exists
 func FileExists(filename string) bool {
 	_, err := os.Stat(filename)

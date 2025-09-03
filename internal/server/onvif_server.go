@@ -401,7 +401,6 @@ func convertMediaProfiles(configProfiles []config.StreamProfile) []media.Profile
 	return mediaProfiles
 }
 
-
 // convertPTZNodes converts config.PTZNode to ptz.PTZNode
 func convertPTZNodes(configPTZNode config.PTZNode) []ptz.PTZNode {
 	// For now, we're creating a single PTZ node from the config

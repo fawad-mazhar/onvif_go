@@ -26,7 +26,6 @@ type PTZNode struct {
 	MaxZoom float64
 }
 
-
 // createNodeElement creates an XML element for a PTZ node
 func (s *ServiceContext) createNodeElement(node PTZNode) string {
 	// Create node element

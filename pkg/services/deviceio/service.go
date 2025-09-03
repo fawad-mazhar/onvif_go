@@ -20,7 +20,6 @@ type RelayOutput struct {
 	IdleState string // "open" or "closed"
 }
 
-
 // createRelayOutputElement creates an XML element for a relay output
 func (s *ServiceContext) createRelayOutputElement(relay RelayOutput) string {
 	// Create relay output element

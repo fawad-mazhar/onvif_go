@@ -32,7 +32,6 @@ func InitLogger(level Level) {
 	logger.SetLevel(logrus.Level(level))
 }
 
-
 // Fatal logs a fatal error message
 func Fatal(format string, args ...interface{}) {
 	if len(args) > 0 {
@@ -77,4 +76,3 @@ func Debug(format string, args ...interface{}) {
 		logger.Debug(format)
 	}
 }
-
