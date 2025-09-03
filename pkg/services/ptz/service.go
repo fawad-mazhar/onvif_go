@@ -3,9 +3,8 @@ package ptz
 import (
 	"fmt"
 	"net/http"
-	"path/filepath"
 
-	"github.com/fawad-mazhar/onvif-go/internal/xml"
+	"github.com/fawad-mazhar/onvif-go/internal/utils"
 )
 
 // ServiceContext holds the configuration and state for the PTZ service
@@ -73,19 +72,7 @@ func (s *ServiceContext) GetServiceCapabilitiesHTTP(w http.ResponseWriter) error
 	replacements := map[string]string{}
 
 	// Process template and write response
-	templatePath := filepath.Join("service_files", "ptz", "GetServiceCapabilities.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetServiceCapabilities template: %v", err)
-	}
-
-	w.Write([]byte(response))
-	return nil
+	return utils.ProcessServiceTemplate(w, "ptz", "GetServiceCapabilities", replacements)
 }
 
 // GetNodesHTTP handles the GetNodes ONVIF PTZ service method via HTTP
@@ -107,17 +94,5 @@ func (s *ServiceContext) GetNodesHTTP(w http.ResponseWriter) error {
 	}
 
 	// Process template and write response
-	templatePath := filepath.Join("service_files", "ptz", "GetNodes.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetNodes template: %v", err)
-	}
-
-	w.Write([]byte(response))
-	return nil
+	return utils.ProcessServiceTemplate(w, "ptz", "GetNodes", replacements)
 }

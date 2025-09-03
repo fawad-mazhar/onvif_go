@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -80,19 +79,17 @@ func getLocalIP() string {
 
 // handleWSDRequest handles WSD requests and sends appropriate responses
 func handleWSDRequest(w http.ResponseWriter, r *http.Request, cfg *config.ServiceContext, ip string) {
-	// Read the request body
-	body, err := io.ReadAll(r.Body)
+	// Read request using shared utility
+	request, err := utils.ReadSOAPRequest(r, "WSD")
 	if err != nil {
-		logger.Warn("Failed to read WSD request: %v", err)
+		logger.Warn("%v", err)
 		http.Error(w, "Failed to read request", http.StatusBadRequest)
 		return
 	}
-
-	request := string(body)
 	logger.Debug("WSD request: %s", request)
 
-	// Set response headers
-	w.Header().Set("Content-Type", "application/soap+xml")
+	// Set response headers using shared utility
+	utils.SetSOAPHeaders(w)
 
 	// Handle different WSD actions
 	switch {
@@ -139,10 +136,13 @@ func generateProbeMatchesResponse(cfg *config.ServiceContext, ip string) string 
 	</soap:Body>
 </soap:Envelope>`
 
-	// Replace placeholders with actual values
-	response := strings.Replace(template, "%MESSAGE_ID%", "urn:uuid:"+generateUUID(), -1)
-	response = strings.Replace(response, "%RELATES_TO%", "urn:uuid:example", -1)
-	response = strings.Replace(response, "%UUID%", cfg.UUID, -1)
+	// Replace placeholders with actual values using shared utility
+	replacements := map[string]string{
+		"%MESSAGE_ID%": "urn:uuid:" + generateUUID(),
+		"%RELATES_TO%": "urn:uuid:example",
+		"%UUID%":       cfg.UUID,
+	}
+	response := utils.ReplaceTemplatePlaceholders(template, replacements)
 
 	return response
 }
@@ -172,9 +172,12 @@ func generateResolveResponse(cfg *config.ServiceContext, ip string) string {
 	</soap:Body>
 </soap:Envelope>`
 
-	// Replace placeholders with actual values
-	response := strings.Replace(template, "%MESSAGE_ID%", "urn:uuid:"+generateUUID(), -1)
-	response = strings.Replace(response, "%UUID%", cfg.UUID, -1)
+	// Replace placeholders with actual values using shared utility
+	replacements := map[string]string{
+		"%MESSAGE_ID%": "urn:uuid:" + generateUUID(),
+		"%UUID%":       cfg.UUID,
+	}
+	response := utils.ReplaceTemplatePlaceholders(template, replacements)
 
 	return response
 }

@@ -3,9 +3,8 @@ package events
 import (
 	"fmt"
 	"net/http"
-	"path/filepath"
 
-	"github.com/fawad-mazhar/onvif-go/internal/xml"
+	"github.com/fawad-mazhar/onvif-go/internal/utils"
 )
 
 // ServiceContext holds the configuration and state for the events service
@@ -41,19 +40,7 @@ func (s *ServiceContext) GetServiceCapabilitiesHTTP(w http.ResponseWriter) error
 	replacements := map[string]string{}
 
 	// Process template and write response
-	templatePath := filepath.Join("service_files", "events", "GetServiceCapabilities.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetServiceCapabilities template: %v", err)
-	}
-
-	w.Write([]byte(response))
-	return nil
+	return utils.ProcessServiceTemplate(w, "events", "GetServiceCapabilities", replacements)
 }
 
 // GetEventPropertiesHTTP handles the GetEventProperties ONVIF events service method via HTTP
@@ -75,17 +62,5 @@ func (s *ServiceContext) GetEventPropertiesHTTP(w http.ResponseWriter) error {
 	}
 
 	// Process template and write response
-	templatePath := filepath.Join("service_files", "events", "GetEventProperties.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetEventProperties template: %v", err)
-	}
-
-	w.Write([]byte(response))
-	return nil
+	return utils.ProcessServiceTemplate(w, "events", "GetEventProperties", replacements)
 }

@@ -3,10 +3,9 @@ package media
 import (
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"strings"
 
-	"github.com/fawad-mazhar/onvif-go/internal/xml"
+	"github.com/fawad-mazhar/onvif-go/internal/utils"
 )
 
 // ServiceContext holds the configuration and state for the media service
@@ -39,96 +38,8 @@ func (s *ServiceContext) createProfileElement(profile Profile, token string) str
                         <tt:Bounds x="0" y="0" width="%d" height="%d"/>
                     </trt:VideoSourceConfiguration>`, token, profile.Width, profile.Height)
 
-	// Create video encoder configuration based on profile type
-	videoEncoderConfig := ""
-	switch profile.Type {
-	case "JPEG":
-		videoEncoderConfig = fmt.Sprintf(`
-                    <trt:VideoEncoderConfiguration token="%s_veconf">
-                        <tt:Name>VideoEncoderConfiguration</tt:Name>
-                        <tt:UseCount>1</tt:UseCount>
-                        <tt:Encoding>JPEG</tt:Encoding>
-                        <tt:Resolution>
-                            <tt:Width>%d</tt:Width>
-                            <tt:Height>%d</tt:Height>
-                        </tt:Resolution>
-                        <tt:Quality>5.0</tt:Quality>
-                        <tt:RateControl>
-                            <tt:FrameRateLimit>25</tt:FrameRateLimit>
-                            <tt:EncodingInterval>1</tt:EncodingInterval>
-                            <tt:BitrateLimit>10240</tt:BitrateLimit>
-                        </tt:RateControl>
-                        <tt:Multicast>
-                            <tt:Address>
-                                <tt:Type>IPv4</tt:Type>
-                            </tt:Address>
-                            <tt:Port>0</tt:Port>
-                            <tt:TTL>1</tt:TTL>
-                            <tt:AutoStart>false</tt:AutoStart>
-                        </tt:Multicast>
-                        <tt:SessionTimeout>PT60S</tt:SessionTimeout>
-                    </trt:VideoEncoderConfiguration>`, token, profile.Width, profile.Height)
-	case "MPEG4":
-		videoEncoderConfig = fmt.Sprintf(`
-                    <trt:VideoEncoderConfiguration token="%s_veconf">
-                        <tt:Name>VideoEncoderConfiguration</tt:Name>
-                        <tt:UseCount>1</tt:UseCount>
-                        <tt:Encoding>MPEG4</tt:Encoding>
-                        <tt:Resolution>
-                            <tt:Width>%d</tt:Width>
-                            <tt:Height>%d</tt:Height>
-                        </tt:Resolution>
-                        <tt:Quality>5.0</tt:Quality>
-                        <tt:RateControl>
-                            <tt:FrameRateLimit>25</tt:FrameRateLimit>
-                            <tt:EncodingInterval>1</tt:EncodingInterval>
-                            <tt:BitrateLimit>10240</tt:BitrateLimit>
-                        </tt:RateControl>
-                        <tt:MPEG4>
-                            <tt:GovLength>60</tt:GovLength>
-                            <tt:Mpeg4Profile>Main</tt:Mpeg4Profile>
-                        </tt:MPEG4>
-                        <tt:Multicast>
-                            <tt:Address>
-                                <tt:Type>IPv4</tt:Type>
-                            </tt:Address>
-                            <tt:Port>0</tt:Port>
-                            <tt:TTL>1</tt:TTL>
-                            <tt:AutoStart>false</tt:AutoStart>
-                        </tt:Multicast>
-                        <tt:SessionTimeout>PT60S</tt:SessionTimeout>
-                    </trt:VideoEncoderConfiguration>`, token, profile.Width, profile.Height)
-	case "H264":
-		videoEncoderConfig = fmt.Sprintf(`
-                    <trt:VideoEncoderConfiguration token="%s_veconf">
-                        <tt:Name>VideoEncoderConfiguration</tt:Name>
-                        <tt:UseCount>1</tt:UseCount>
-                        <tt:Encoding>H264</tt:Encoding>
-                        <tt:Resolution>
-                            <tt:Width>%d</tt:Width>
-                            <tt:Height>%d</tt:Height>
-                        </tt:Resolution>
-                        <tt:Quality>5.0</tt:Quality>
-                        <tt:RateControl>
-                            <tt:FrameRateLimit>25</tt:FrameRateLimit>
-                            <tt:EncodingInterval>1</tt:EncodingInterval>
-                            <tt:BitrateLimit>10240</tt:BitrateLimit>
-                        </tt:RateControl>
-                        <tt:H264>
-                            <tt:GovLength>60</tt:GovLength>
-                            <tt:H264Profile>Main</tt:H264Profile>
-                        </tt:H264>
-                        <tt:Multicast>
-                            <tt:Address>
-                                <tt:Type>IPv4</tt:Type>
-                            </tt:Address>
-                            <tt:Port>0</tt:Port>
-                            <tt:TTL>1</tt:TTL>
-                            <tt:AutoStart>false</tt:AutoStart>
-                        </tt:Multicast>
-                        <tt:SessionTimeout>PT60S</tt:SessionTimeout>
-                    </trt:VideoEncoderConfiguration>`, token, profile.Width, profile.Height)
-	}
+	// Create video encoder configuration using shared utility
+	videoEncoderConfig := utils.CreateVideoEncoderConfig(profile.Type, token, profile.Width, profile.Height)
 
 	// Create profile element
 	profileElement := fmt.Sprintf(`
@@ -151,19 +62,7 @@ func (s *ServiceContext) GetServiceCapabilitiesHTTP(w http.ResponseWriter) error
 	}
 
 	// Process template and write response
-	templatePath := filepath.Join("service_files", "media", "GetServiceCapabilities.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetServiceCapabilities template: %v", err)
-	}
-
-	w.Write([]byte(response))
-	return nil
+	return utils.ProcessServiceTemplate(w, "media", "GetServiceCapabilities", replacements)
 }
 
 // GetProfilesHTTP handles the GetProfiles ONVIF media service method via HTTP
@@ -182,17 +81,5 @@ func (s *ServiceContext) GetProfilesHTTP(w http.ResponseWriter) error {
 	}
 
 	// Process template and write response
-	templatePath := filepath.Join("service_files", "media", "GetProfiles.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetProfiles template: %v", err)
-	}
-
-	w.Write([]byte(response))
-	return nil
+	return utils.ProcessServiceTemplate(w, "media", "GetProfiles", replacements)
 }

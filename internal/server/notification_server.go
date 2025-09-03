@@ -2,10 +2,8 @@ package server
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/fawad-mazhar/onvif-go/internal/config"
 	"github.com/fawad-mazhar/onvif-go/internal/logger"
@@ -35,19 +33,17 @@ func StartNotificationServer(cfg *config.ServiceContext) error {
 
 // handleNotificationRequest handles notification requests and sends appropriate responses
 func handleNotificationRequest(w http.ResponseWriter, r *http.Request, cfg *config.ServiceContext) {
-	// Read the request body
-	body, err := io.ReadAll(r.Body)
+	// Read request using shared utility
+	request, err := utils.ReadSOAPRequest(r, "notification")
 	if err != nil {
-		logger.Warn("Failed to read notification request: %v", err)
+		logger.Warn("%v", err)
 		http.Error(w, "Failed to read request", http.StatusBadRequest)
 		return
 	}
-
-	request := string(body)
 	logger.Debug("Notification request: %s", request)
 
-	// Set response headers
-	w.Header().Set("Content-Type", "application/soap+xml")
+	// Set response headers using shared utility
+	utils.SetSOAPHeaders(w)
 
 	// Handle different notification actions
 	switch {
@@ -96,12 +92,12 @@ func generateSubscribeResponse() string {
     </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>`
 
-	// Replace placeholders with actual values
-	currentTime := time.Now().Format(time.RFC3339)
-	terminationTime := time.Now().Add(time.Hour).Format(time.RFC3339) // 1 hour from now
-
-	response := strings.Replace(template, "%CURRENT_TIME%", currentTime, -1)
-	response = strings.Replace(response, "%TERMINATION_TIME%", terminationTime, -1)
+	// Replace placeholders with actual values using shared utility
+	replacements := map[string]string{
+		"%CURRENT_TIME%":     utils.GetCurrentTimeRFC3339(),
+		"%TERMINATION_TIME%": utils.GetTimeAfterHoursRFC3339(1),
+	}
+	response := utils.ReplaceTemplatePlaceholders(template, replacements)
 
 	return response
 }
@@ -141,10 +137,11 @@ func generateRenewResponse() string {
     </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>`
 
-	// Replace placeholder with actual value
-	terminationTime := time.Now().Add(time.Hour).Format(time.RFC3339) // 1 hour from now
-
-	response := strings.Replace(template, "%TERMINATION_TIME%", terminationTime, -1)
+	// Replace placeholder with actual value using shared utility
+	replacements := map[string]string{
+		"%TERMINATION_TIME%": utils.GetTimeAfterHoursRFC3339(1),
+	}
+	response := utils.ReplaceTemplatePlaceholders(template, replacements)
 
 	return response
 }
@@ -168,12 +165,12 @@ func generatePullMessagesResponse(cfg *config.ServiceContext) string {
     </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>`
 
-	// Replace placeholders with actual values
-	currentTime := time.Now().Format(time.RFC3339)
-	terminationTime := time.Now().Add(time.Hour).Format(time.RFC3339) // 1 hour from now
-
-	response := strings.Replace(template, "%CURRENT_TIME%", currentTime, -1)
-	response = strings.Replace(response, "%TERMINATION_TIME%", terminationTime, -1)
+	// Replace placeholders with actual values using shared utility
+	replacements := map[string]string{
+		"%CURRENT_TIME%":     utils.GetCurrentTimeRFC3339(),
+		"%TERMINATION_TIME%": utils.GetTimeAfterHoursRFC3339(1),
+	}
+	response := utils.ReplaceTemplatePlaceholders(template, replacements)
 
 	return response
 }

@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 
-	"github.com/fawad-mazhar/onvif-go/internal/xml"
+	"github.com/fawad-mazhar/onvif-go/internal/utils"
 )
 
 // ServiceContext holds the configuration and state for the device service
@@ -54,19 +53,7 @@ func (s *ServiceContext) GetServicesHTTP(w http.ResponseWriter) error {
 	}
 
 	// Process template and write response
-	templatePath := filepath.Join("service_files", "device", "GetServices.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetServices template: %v", err)
-	}
-
-	w.Write([]byte(response))
-	return nil
+	return utils.ProcessServiceTemplate(w, "device", "GetServices", replacements)
 }
 
 // GetDeviceInformationHTTP handles the GetDeviceInformation ONVIF device service method via HTTP
@@ -81,19 +68,7 @@ func (s *ServiceContext) GetDeviceInformationHTTP(w http.ResponseWriter) error {
 	}
 
 	// Process template and write response
-	templatePath := filepath.Join("service_files", "device", "GetDeviceInformation.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetDeviceInformation template: %v", err)
-	}
-
-	w.Write([]byte(response))
-	return nil
+	return utils.ProcessServiceTemplate(w, "device", "GetDeviceInformation", replacements)
 }
 
 // GetCapabilitiesHTTP handles the GetCapabilities ONVIF device service method via HTTP
@@ -125,19 +100,7 @@ func (s *ServiceContext) GetCapabilitiesHTTP(w http.ResponseWriter) error {
 	}
 
 	// Process template and write response
-	templatePath := filepath.Join("service_files", "device", "GetCapabilities.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetCapabilities template: %v", err)
-	}
-
-	w.Write([]byte(response))
-	return nil
+	return utils.ProcessServiceTemplate(w, "device", "GetCapabilities", replacements)
 }
 
 // GetScopesHTTP handles the GetScopes ONVIF device service method via HTTP
@@ -156,19 +119,7 @@ func (s *ServiceContext) GetScopesHTTP(w http.ResponseWriter) error {
 	}
 
 	// Process template and write response
-	templatePath := filepath.Join("service_files", "device", "GetScopes.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetScopes template: %v", err)
-	}
-
-	w.Write([]byte(response))
-	return nil
+	return utils.ProcessServiceTemplate(w, "device", "GetScopes", replacements)
 }
 
 // SystemRebootHTTP handles the SystemReboot ONVIF device service method via HTTP
@@ -179,18 +130,10 @@ func (s *ServiceContext) SystemRebootHTTP(w http.ResponseWriter) error {
 	}
 
 	// Process template and write response
-	templatePath := filepath.Join("service_files", "device", "SystemReboot.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, replacements)
+	err := utils.ProcessServiceTemplate(w, "device", "SystemReboot", replacements)
 	if err != nil {
-		return fmt.Errorf("failed to process SystemReboot template: %v", err)
+		return err
 	}
-
-	w.Write([]byte(response))
 
 	// In a real implementation, we would execute the reboot command
 	// For now, we'll just log that reboot was requested
@@ -210,37 +153,13 @@ func (s *ServiceContext) GetSystemDateAndTimeHTTP(w http.ResponseWriter) error {
 	}
 
 	// Process template and write response
-	templatePath := filepath.Join("service_files", "device", "GetSystemDateAndTime.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetSystemDateAndTime template: %v", err)
-	}
-
-	w.Write([]byte(response))
-	return nil
+	return utils.ProcessServiceTemplate(w, "device", "GetSystemDateAndTime", replacements)
 }
 
 // GetUsersHTTP handles the GetUsers ONVIF device service method via HTTP
 func (s *ServiceContext) GetUsersHTTP(w http.ResponseWriter) error {
 	// Process template and write response
-	templatePath := filepath.Join("service_files", "device", "GetUsers.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, nil)
-	if err != nil {
-		return fmt.Errorf("failed to process GetUsers template: %v", err)
-	}
-
-	w.Write([]byte(response))
-	return nil
+	return utils.ProcessServiceTemplate(w, "device", "GetUsers", nil)
 }
 
 // GetWsdlUrlHTTP handles the GetWsdlUrl ONVIF device service method via HTTP
@@ -251,53 +170,17 @@ func (s *ServiceContext) GetWsdlUrlHTTP(w http.ResponseWriter) error {
 	}
 
 	// Process template and write response
-	templatePath := filepath.Join("service_files", "device", "GetWsdlUrl.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetWsdlUrl template: %v", err)
-	}
-
-	w.Write([]byte(response))
-	return nil
+	return utils.ProcessServiceTemplate(w, "device", "GetWsdlUrl", replacements)
 }
 
 // GetNetworkInterfacesHTTP handles the GetNetworkInterfaces ONVIF device service method via HTTP
 func (s *ServiceContext) GetNetworkInterfacesHTTP(w http.ResponseWriter) error {
 	// Process template and write response
-	templatePath := filepath.Join("service_files", "device", "GetNetworkInterfaces.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, nil)
-	if err != nil {
-		return fmt.Errorf("failed to process GetNetworkInterfaces template: %v", err)
-	}
-
-	w.Write([]byte(response))
-	return nil
+	return utils.ProcessServiceTemplate(w, "device", "GetNetworkInterfaces", nil)
 }
 
 // GetDiscoveryModeHTTP handles the GetDiscoveryMode ONVIF device service method via HTTP
 func (s *ServiceContext) GetDiscoveryModeHTTP(w http.ResponseWriter) error {
 	// Process template and write response
-	templatePath := filepath.Join("service_files", "device", "GetDiscoveryMode.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, nil)
-	if err != nil {
-		return fmt.Errorf("failed to process GetDiscoveryMode template: %v", err)
-	}
-
-	w.Write([]byte(response))
-	return nil
+	return utils.ProcessServiceTemplate(w, "device", "GetDiscoveryMode", nil)
 }
