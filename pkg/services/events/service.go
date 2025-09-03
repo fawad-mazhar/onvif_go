@@ -45,22 +45,12 @@ func (s *ServiceContext) GetServiceCapabilitiesHTTP(w http.ResponseWriter) error
 
 // GetEventPropertiesHTTP handles the GetEventProperties ONVIF events service method via HTTP
 func (s *ServiceContext) GetEventPropertiesHTTP(w http.ResponseWriter) error {
-	// Create event elements
-	eventElements := make([]string, len(s.Events))
-	for i, event := range s.Events {
-		eventElements[i] = s.createEventElement(event)
-	}
-
-	eventsXML := ""
-	if len(eventElements) > 0 {
-		eventsXML = eventElements[0] // For simplicity, we're only using the first event
-	}
-
-	// Create replacements map for template processing
-	replacements := map[string]string{
-		"%EVENTS%": eventsXML,
-	}
-
-	// Process template and write response
-	return utils.ProcessServiceTemplate(w, "events", "GetEventProperties", replacements)
+	return utils.ProcessCollectionServiceTemplate(
+		w,
+		s.Events,
+		s.createEventElement,
+		"%EVENTS%",
+		"events",
+		"GetEventProperties",
+	)
 }

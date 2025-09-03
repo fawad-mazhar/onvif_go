@@ -127,3 +127,39 @@ func GenerateGenericResponse() string {
     </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>`
 }
+
+// ProcessCollectionServiceTemplate processes a service template with a collection of items
+// T is the type of items in the collection
+// items: the collection of items to process
+// createElement: function that converts an item to XML element string
+// placeholder: the template placeholder to replace (e.g., "%ITEMS%")
+// serviceName: the service name for template lookup
+// methodName: the method name for template lookup
+func ProcessCollectionServiceTemplate[T any](
+	w http.ResponseWriter,
+	items []T,
+	createElement func(T) string,
+	placeholder string,
+	serviceName string,
+	methodName string,
+) error {
+	// Create elements from the collection
+	elements := make([]string, len(items))
+	for i, item := range items {
+		elements[i] = createElement(item)
+	}
+
+	// Use first element or empty string if no items
+	resultXML := ""
+	if len(elements) > 0 {
+		resultXML = elements[0] // For simplicity, using the first element
+	}
+
+	// Create replacements map for template processing
+	replacements := map[string]string{
+		placeholder: resultXML,
+	}
+
+	// Process template and write response
+	return ProcessServiceTemplate(w, serviceName, methodName, replacements)
+}

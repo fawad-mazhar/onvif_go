@@ -77,22 +77,12 @@ func (s *ServiceContext) GetServiceCapabilitiesHTTP(w http.ResponseWriter) error
 
 // GetNodesHTTP handles the GetNodes ONVIF PTZ service method via HTTP
 func (s *ServiceContext) GetNodesHTTP(w http.ResponseWriter) error {
-	// Create node elements
-	nodeElements := make([]string, len(s.PTZNodes))
-	for i, node := range s.PTZNodes {
-		nodeElements[i] = s.createNodeElement(node)
-	}
-
-	nodesXML := ""
-	if len(nodeElements) > 0 {
-		nodesXML = nodeElements[0] // For simplicity, we're only using the first node
-	}
-
-	// Create replacements map for template processing
-	replacements := map[string]string{
-		"%NODES%": nodesXML,
-	}
-
-	// Process template and write response
-	return utils.ProcessServiceTemplate(w, "ptz", "GetNodes", replacements)
+	return utils.ProcessCollectionServiceTemplate(
+		w,
+		s.PTZNodes,
+		s.createNodeElement,
+		"%NODES%",
+		"ptz",
+		"GetNodes",
+	)
 }

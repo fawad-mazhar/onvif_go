@@ -135,8 +135,7 @@ func processSOAPRequest(w http.ResponseWriter, soapAction, serviceName string, c
 			deviceService := &device.ServiceContext{}
 			deviceService.GetDiscoveryModeHTTP(w)
 		default:
-			logger.Warn("Unsupported SOAP action: %s", soapAction)
-			sendSOAPError(w, "Unsupported SOAP action")
+			handleUnsupportedSOAPAction(w, soapAction)
 		}
 	case "media_service":
 		switch {
@@ -152,8 +151,7 @@ func processSOAPRequest(w http.ResponseWriter, soapAction, serviceName string, c
 			}
 			mediaService.GetProfilesHTTP(w)
 		default:
-			logger.Warn("Unsupported SOAP action: %s", soapAction)
-			sendSOAPError(w, "Unsupported SOAP action")
+			handleUnsupportedSOAPAction(w, soapAction)
 		}
 	case "ptz_service":
 		switch {
@@ -169,8 +167,7 @@ func processSOAPRequest(w http.ResponseWriter, soapAction, serviceName string, c
 			}
 			ptzService.GetNodesHTTP(w)
 		default:
-			logger.Warn("Unsupported SOAP action: %s", soapAction)
-			sendSOAPError(w, "Unsupported SOAP action")
+			handleUnsupportedSOAPAction(w, soapAction)
 		}
 	case "events_service":
 		switch {
@@ -186,8 +183,7 @@ func processSOAPRequest(w http.ResponseWriter, soapAction, serviceName string, c
 			}
 			eventsService.GetEventPropertiesHTTP(w)
 		default:
-			logger.Warn("Unsupported SOAP action: %s", soapAction)
-			sendSOAPError(w, "Unsupported SOAP action")
+			handleUnsupportedSOAPAction(w, soapAction)
 		}
 	case "deviceio_service":
 		switch {
@@ -203,13 +199,23 @@ func processSOAPRequest(w http.ResponseWriter, soapAction, serviceName string, c
 			}
 			deviceioService.GetRelayOutputsHTTP(w)
 		default:
-			logger.Warn("Unsupported SOAP action: %s", soapAction)
-			sendSOAPError(w, "Unsupported SOAP action")
+			handleUnsupportedSOAPAction(w, soapAction)
 		}
 	default:
-		logger.Warn("Unsupported service: %s", serviceName)
-		sendSOAPError(w, "Unsupported service")
+		handleUnsupportedService(w, serviceName)
 	}
+}
+
+// handleUnsupportedSOAPAction handles unsupported SOAP actions with consistent logging
+func handleUnsupportedSOAPAction(w http.ResponseWriter, soapAction string) {
+	logger.Warn("Unsupported SOAP action: %s", soapAction)
+	sendSOAPError(w, "Unsupported SOAP action")
+}
+
+// handleUnsupportedService handles unsupported services with consistent logging
+func handleUnsupportedService(w http.ResponseWriter, serviceName string) {
+	logger.Warn("Unsupported service: %s", serviceName)
+	sendSOAPError(w, "Unsupported service")
 }
 
 // sendSOAPError sends a SOAP fault response for errors

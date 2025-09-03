@@ -216,16 +216,25 @@ func LoadConfig(filename string) (*ServiceContext, error) {
 	return context, nil
 }
 
+// parsePortValue parses and validates a port value
+func parsePortValue(value, fieldName string) (int, error) {
+	port, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s value: %v", fieldName, err)
+	}
+	if port < 0 || port > 65535 {
+		return 0, fmt.Errorf("%s value out of range: %d", fieldName, port)
+	}
+	return port, nil
+}
+
 // parseConfigValue parses a single key=value configuration pair
 func parseConfigValue(context *ServiceContext, key, value string) error {
 	switch key {
 	case "port":
-		port, err := strconv.Atoi(value)
+		port, err := parsePortValue(value, "port")
 		if err != nil {
-			return fmt.Errorf("invalid port value: %v", err)
-		}
-		if port < 0 || port > 65535 {
-			return fmt.Errorf("port value out of range: %d", port)
+			return err
 		}
 		context.Port = port
 
@@ -285,22 +294,16 @@ func parseConfigValue(context *ServiceContext, key, value string) error {
 		context.AdvSynologyNVR = synology
 
 	case "notification_port":
-		port, err := strconv.Atoi(value)
+		port, err := parsePortValue(value, "notification_port")
 		if err != nil {
-			return fmt.Errorf("invalid notification_port value: %v", err)
-		}
-		if port < 0 || port > 65535 {
-			return fmt.Errorf("notification_port value out of range: %d", port)
+			return err
 		}
 		context.NotificationPort = port
 
 	case "wsd_port":
-		port, err := strconv.Atoi(value)
+		port, err := parsePortValue(value, "wsd_port")
 		if err != nil {
-			return fmt.Errorf("invalid wsd_port value: %v", err)
-		}
-		if port < 0 || port > 65535 {
-			return fmt.Errorf("wsd_port value out of range: %d", port)
+			return err
 		}
 		context.WSDPort = port
 

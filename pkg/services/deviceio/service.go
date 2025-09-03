@@ -47,22 +47,12 @@ func (s *ServiceContext) GetServiceCapabilitiesHTTP(w http.ResponseWriter) error
 
 // GetRelayOutputsHTTP handles the GetRelayOutputs ONVIF deviceio service method via HTTP
 func (s *ServiceContext) GetRelayOutputsHTTP(w http.ResponseWriter) error {
-	// Create relay output elements
-	relayElements := make([]string, len(s.RelayOutputs))
-	for i, relay := range s.RelayOutputs {
-		relayElements[i] = s.createRelayOutputElement(relay)
-	}
-
-	relaysXML := ""
-	if len(relayElements) > 0 {
-		relaysXML = relayElements[0] // For simplicity, we're only using the first relay
-	}
-
-	// Create replacements map for template processing
-	replacements := map[string]string{
-		"%RELAY_OUTPUTS%": relaysXML,
-	}
-
-	// Process template and write response
-	return utils.ProcessServiceTemplate(w, "deviceio", "GetRelayOutputs", replacements)
+	return utils.ProcessCollectionServiceTemplate(
+		w,
+		s.RelayOutputs,
+		s.createRelayOutputElement,
+		"%RELAY_OUTPUTS%",
+		"deviceio",
+		"GetRelayOutputs",
+	)
 }
