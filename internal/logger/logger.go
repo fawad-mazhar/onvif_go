@@ -32,10 +32,6 @@ func InitLogger(level Level) {
 	logger.SetLevel(logrus.Level(level))
 }
 
-// SetLevel sets the logging level
-func SetLevel(level Level) {
-	logger.SetLevel(logrus.Level(level))
-}
 
 // Fatal logs a fatal error message
 func Fatal(format string, args ...interface{}) {
@@ -82,41 +78,3 @@ func Debug(format string, args ...interface{}) {
 	}
 }
 
-// Trace logs a trace message
-func Trace(format string, args ...interface{}) {
-	if len(args) > 0 {
-		logger.Trace(fmt.Sprintf(format, args...))
-	} else {
-		logger.Trace(format)
-	}
-}
-
-// Fatalf logs a fatal error message with formatting
-func Fatalf(format string, args ...interface{}) {
-	logger.Fatalf(format, args...)
-}
-
-// Errorf logs an error message with formatting
-func Errorf(format string, args ...interface{}) {
-	logger.Errorf(format, args...)
-}
-
-// Warnf logs a warning message with formatting
-func Warnf(format string, args ...interface{}) {
-	logger.Warnf(format, args...)
-}
-
-// Infof logs an info message with formatting
-func Infof(format string, args ...interface{}) {
-	logger.Infof(format, args...)
-}
-
-// Debugf logs a debug message with formatting
-func Debugf(format string, args ...interface{}) {
-	logger.Debugf(format, args...)
-}
-
-// Tracef logs a trace message with formatting
-func Tracef(format string, args ...interface{}) {
-	logger.Tracef(format, args...)
-}

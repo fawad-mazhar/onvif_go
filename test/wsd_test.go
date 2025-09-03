@@ -11,7 +11,7 @@ import (
 func TestWSDServerProbe(t *testing.T) {
 	// Give the server some time to start
 	time.Sleep(2 * time.Second)
-	
+
 	// Create a WSD probe request
 	probeRequest := `<?xml version="1.0" encoding="utf-8"?>
 	<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"
@@ -28,7 +28,7 @@ func TestWSDServerProbe(t *testing.T) {
 			</wsd:Probe>
 		</soap:Body>
 	</soap:Envelope>`
-	
+
 	// Send the request to the WSD server
 	resp, err := http.Post("http://localhost:3703/wsd", "application/soap+xml", bytes.NewBufferString(probeRequest))
 	if err != nil {
@@ -37,12 +37,12 @@ func TestWSDServerProbe(t *testing.T) {
 		return
 	}
 	defer resp.Body.Close()
-	
+
 	// Check that we got a response
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status code 200, got %d", resp.StatusCode)
 	}
-	
+
 	// Check that the response contains expected WSD elements
 	// This is a basic check - in a real test we would parse the XML response
 	t.Logf("WSD server probe test completed with status code: %d", resp.StatusCode)
@@ -52,7 +52,7 @@ func TestWSDServerProbe(t *testing.T) {
 func TestWSDServerResolve(t *testing.T) {
 	// Give the server some time to start
 	time.Sleep(2 * time.Second)
-	
+
 	// Create a WSD resolve request
 	resolveRequest := `<?xml version="1.0" encoding="utf-8"?>
 	<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"
@@ -70,7 +70,7 @@ func TestWSDServerResolve(t *testing.T) {
 			</wsd:Resolve>
 		</soap:Body>
 	</soap:Envelope>`
-	
+
 	// Send the request to the WSD server
 	resp, err := http.Post("http://localhost:3703/wsd", "application/soap+xml", bytes.NewBufferString(resolveRequest))
 	if err != nil {
@@ -79,12 +79,12 @@ func TestWSDServerResolve(t *testing.T) {
 		return
 	}
 	defer resp.Body.Close()
-	
+
 	// Check that we got a response
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status code 200, got %d", resp.StatusCode)
 	}
-	
+
 	// Check that the response contains expected WSD elements
 	// This is a basic check - in a real test we would parse the XML response
 	t.Logf("WSD server resolve test completed with status code: %d", resp.StatusCode)

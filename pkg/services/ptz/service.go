@@ -4,167 +4,29 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
-	
+
 	"github.com/fawad-mazhar/onvif-go/internal/xml"
 )
 
 // ServiceContext holds the configuration and state for the PTZ service
 type ServiceContext struct {
-	Port      int
-	PTZNodes  []PTZNode
+	Port     int
+	PTZNodes []PTZNode
 }
 
 // PTZNode represents a PTZ node configuration
 type PTZNode struct {
-	Name      string
-	Token     string
-	PTZType   string  // "relative", "absolute", or "continuous"
-	MinPan    float64
-	MaxPan    float64
-	MinTilt   float64
-	MaxTilt   float64
-	MinZoom   float64
-	MaxZoom   float64
+	Name    string
+	Token   string
+	PTZType string // "relative", "absolute", or "continuous"
+	MinPan  float64
+	MaxPan  float64
+	MinTilt float64
+	MaxTilt float64
+	MinZoom float64
+	MaxZoom float64
 }
 
-// GetServiceCapabilities handles the GetServiceCapabilities ONVIF PTZ service method
-func (s *ServiceContext) GetServiceCapabilities() error {
-	// Create replacements map for template processing
-	replacements := map[string]string{}
-	
-	// Process template and write response
-	templatePath := filepath.Join("service_files", "ptz", "GetServiceCapabilities.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-	
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetServiceCapabilities template: %v", err)
-	}
-	
-	xml.WriteResponse(response, "")
-	return nil
-}
-
-// GetConfigurations handles the GetConfigurations ONVIF PTZ service method
-func (s *ServiceContext) GetConfigurations() error {
-	// Create replacements map for template processing
-	replacements := map[string]string{}
-	
-	// Process template and write response
-	templatePath := filepath.Join("service_files", "ptz", "GetConfigurations.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-	
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetConfigurations template: %v", err)
-	}
-	
-	xml.WriteResponse(response, "")
-	return nil
-}
-
-// GetNodes handles the GetNodes ONVIF PTZ service method
-func (s *ServiceContext) GetNodes() error {
-	// Create node elements
-	nodeElements := make([]string, len(s.PTZNodes))
-	for i, node := range s.PTZNodes {
-		nodeElements[i] = s.createNodeElement(node)
-	}
-	
-	nodesXML := ""
-	if len(nodeElements) > 0 {
-		nodesXML = nodeElements[0] // For simplicity, we're only using the first node
-	}
-	
-	// Create replacements map for template processing
-	replacements := map[string]string{
-		"%NODES%": nodesXML,
-	}
-	
-	// Process template and write response
-	templatePath := filepath.Join("service_files", "ptz", "GetNodes.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-	
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetNodes template: %v", err)
-	}
-	
-	xml.WriteResponse(response, "")
-	return nil
-}
-
-// ContinuousMove handles the ContinuousMove ONVIF PTZ service method
-func (s *ServiceContext) ContinuousMove(profileToken string, x float64, y float64, z float64) error {
-	// Create replacements map for template processing
-	replacements := map[string]string{}
-	
-	// Process template and write response
-	templatePath := filepath.Join("service_files", "ptz", "ContinuousMove.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-	
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process ContinuousMove template: %v", err)
-	}
-	
-	xml.WriteResponse(response, "")
-	return nil
-}
-
-// AbsoluteMove handles the AbsoluteMove ONVIF PTZ service method
-func (s *ServiceContext) AbsoluteMove(profileToken string, x float64, y float64, z float64) error {
-	// Create replacements map for template processing
-	replacements := map[string]string{}
-	
-	// Process template and write response
-	templatePath := filepath.Join("service_files", "ptz", "AbsoluteMove.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-	
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process AbsoluteMove template: %v", err)
-	}
-	
-	xml.WriteResponse(response, "")
-	return nil
-}
-
-// Stop handles the Stop ONVIF PTZ service method
-func (s *ServiceContext) Stop(profileToken string) error {
-	// Create replacements map for template processing
-	replacements := map[string]string{}
-	
-	// Process template and write response
-	templatePath := filepath.Join("service_files", "ptz", "Stop.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-	
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process Stop template: %v", err)
-	}
-	
-	xml.WriteResponse(response, "")
-	return nil
-}
 
 // createNodeElement creates an XML element for a PTZ node
 func (s *ServiceContext) createNodeElement(node PTZNode) string {
@@ -194,12 +56,12 @@ func (s *ServiceContext) createNodeElement(node PTZNode) string {
                     </tt:SupportedPTZSpaces>
                     <tt:MaximumNumberOfPresets>0</tt:MaximumNumberOfPresets>
                     <tt:HomeSupported>false</tt:HomeSupported>
-                </tptz:PTZNode>`, 
+                </tptz:PTZNode>`,
 		node.Token, node.Name,
 		node.MinPan, node.MaxPan,
 		node.MinTilt, node.MaxTilt,
 		node.MinZoom, node.MaxZoom)
-	
+
 	return nodeElement
 }
 
@@ -209,19 +71,19 @@ func (s *ServiceContext) createNodeElement(node PTZNode) string {
 func (s *ServiceContext) GetServiceCapabilitiesHTTP(w http.ResponseWriter) error {
 	// Create replacements map for template processing
 	replacements := map[string]string{}
-	
+
 	// Process template and write response
 	templatePath := filepath.Join("service_files", "ptz", "GetServiceCapabilities.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
 	}
-	
+
 	response, err := xml.ProcessTemplate(templatePath, replacements)
 	if err != nil {
 		return fmt.Errorf("failed to process GetServiceCapabilities template: %v", err)
 	}
-	
+
 	w.Write([]byte(response))
 	return nil
 }
@@ -233,29 +95,29 @@ func (s *ServiceContext) GetNodesHTTP(w http.ResponseWriter) error {
 	for i, node := range s.PTZNodes {
 		nodeElements[i] = s.createNodeElement(node)
 	}
-	
+
 	nodesXML := ""
 	if len(nodeElements) > 0 {
 		nodesXML = nodeElements[0] // For simplicity, we're only using the first node
 	}
-	
+
 	// Create replacements map for template processing
 	replacements := map[string]string{
 		"%NODES%": nodesXML,
 	}
-	
+
 	// Process template and write response
 	templatePath := filepath.Join("service_files", "ptz", "GetNodes.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
 	}
-	
+
 	response, err := xml.ProcessTemplate(templatePath, replacements)
 	if err != nil {
 		return fmt.Errorf("failed to process GetNodes template: %v", err)
 	}
-	
+
 	w.Write([]byte(response))
 	return nil
 }

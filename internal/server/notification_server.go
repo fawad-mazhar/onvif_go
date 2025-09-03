@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	
+
 	"github.com/fawad-mazhar/onvif-go/internal/config"
 	"github.com/fawad-mazhar/onvif-go/internal/logger"
 	"github.com/fawad-mazhar/onvif-go/internal/utils"
@@ -16,14 +16,13 @@ func StartNotificationServer(cfg *config.ServiceContext) error {
 	// Initialize logging
 	logger.InitLogger(logger.INFO)
 	// logger.SetLevel(logger.INFO) - level already set during initialization
-	
-	
+
 	// Create HTTP server for notifications
 	http.HandleFunc("/notification", func(w http.ResponseWriter, r *http.Request) {
 		// Handle notification requests
 		handleNotificationRequest(w, r, cfg)
 	})
-	
+
 	// Start the HTTP server
 	addr := fmt.Sprintf(":%d", cfg.NotificationPort)
 	logger.Info("Starting notification server on port %d", cfg.NotificationPort)
@@ -43,13 +42,13 @@ func handleNotificationRequest(w http.ResponseWriter, r *http.Request, cfg *conf
 		http.Error(w, "Failed to read request", http.StatusBadRequest)
 		return
 	}
-	
+
 	request := string(body)
 	logger.Debug("Notification request: %s", request)
-	
+
 	// Set response headers
 	w.Header().Set("Content-Type", "application/soap+xml")
-	
+
 	// Handle different notification actions
 	switch {
 	case strings.Contains(request, "Subscribe"):
@@ -96,14 +95,14 @@ func generateSubscribeResponse() string {
         </wsnt:SubscribeResponse>
     </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>`
-	
+
 	// Replace placeholders with actual values
 	currentTime := time.Now().Format(time.RFC3339)
 	terminationTime := time.Now().Add(time.Hour).Format(time.RFC3339) // 1 hour from now
-	
+
 	response := strings.Replace(template, "%CURRENT_TIME%", currentTime, -1)
 	response = strings.Replace(response, "%TERMINATION_TIME%", terminationTime, -1)
-	
+
 	return response
 }
 
@@ -121,7 +120,7 @@ func generateUnsubscribeResponse() string {
         <wsnt:UnsubscribeResponse/>
     </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>`
-	
+
 	return template
 }
 
@@ -141,12 +140,12 @@ func generateRenewResponse() string {
         </wsnt:RenewResponse>
     </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>`
-	
+
 	// Replace placeholder with actual value
 	terminationTime := time.Now().Add(time.Hour).Format(time.RFC3339) // 1 hour from now
-	
+
 	response := strings.Replace(template, "%TERMINATION_TIME%", terminationTime, -1)
-	
+
 	return response
 }
 
@@ -168,14 +167,13 @@ func generatePullMessagesResponse(cfg *config.ServiceContext) string {
         </wsnt:PullMessagesResponse>
     </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>`
-	
+
 	// Replace placeholders with actual values
 	currentTime := time.Now().Format(time.RFC3339)
 	terminationTime := time.Now().Add(time.Hour).Format(time.RFC3339) // 1 hour from now
-	
+
 	response := strings.Replace(template, "%CURRENT_TIME%", currentTime, -1)
 	response = strings.Replace(response, "%TERMINATION_TIME%", terminationTime, -1)
-	
+
 	return response
 }
-

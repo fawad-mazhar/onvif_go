@@ -57,30 +57,30 @@ type RelayOutput struct {
 
 // PTZNode represents PTZ configuration
 type PTZNode struct {
-	Enable       int
-	MinStepX     float64
-	MaxStepX     float64
-	MinStepY     float64
-	MaxStepY     float64
-	MinStepZ     float64
-	MaxStepZ     float64
-	GetPosition  string
-	IsMoving     string
-	MoveLeft     string
-	MoveRight    string
-	MoveUp       string
-	MoveDown     string
-	MoveIn       string
-	MoveOut      string
-	MoveStop     string
-	MovePreset   string
+	Enable           int
+	MinStepX         float64
+	MaxStepX         float64
+	MinStepY         float64
+	MaxStepY         float64
+	MinStepZ         float64
+	MaxStepZ         float64
+	GetPosition      string
+	IsMoving         string
+	MoveLeft         string
+	MoveRight        string
+	MoveUp           string
+	MoveDown         string
+	MoveIn           string
+	MoveOut          string
+	MoveStop         string
+	MovePreset       string
 	GotoHomePosition string
-	SetPreset    string
-	SetHomePosition string
-	RemovePreset string
-	JumpToAbs    string
-	JumpToRel    string
-	GetPresets   string
+	SetPreset        string
+	SetHomePosition  string
+	RemovePreset     string
+	JumpToAbs        string
+	JumpToRel        string
+	GetPresets       string
 }
 
 // Event represents an event configuration
@@ -174,45 +174,45 @@ func LoadConfig(filename string) (*ServiceContext, error) {
 	defer file.Close()
 
 	context := &ServiceContext{
-		Profiles:    make([]StreamProfile, 0),
-		Scopes:      make([]string, 0),
+		Profiles:     make([]StreamProfile, 0),
+		Scopes:       make([]string, 0),
 		RelayOutputs: make([]RelayOutput, 0),
-		Events:      make([]Event, 0),
+		Events:       make([]Event, 0),
 	}
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		
+
 		// Skip empty lines and comments
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		
+
 		// Parse key=value pairs
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) != 2 {
 			continue
 		}
-		
+
 		key := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
-		
+
 		// Remove quotes if present
 		if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") && len(value) > 1 {
 			value = value[1 : len(value)-1]
 		}
-		
+
 		err := parseConfigValue(context, key, value)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing config key %s: %v", key, err)
 		}
 	}
-	
+
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("error reading config file: %v", err)
 	}
-	
+
 	return context, nil
 }
 
@@ -228,62 +228,62 @@ func parseConfigValue(context *ServiceContext, key, value string) error {
 			return fmt.Errorf("port value out of range: %d", port)
 		}
 		context.Port = port
-		
+
 	case "user":
 		context.User = value
-		
+
 	case "password":
 		context.Password = value
-		
+
 	case "manufacturer":
 		context.Manufacturer = value
-		
+
 	case "model":
 		context.Model = value
-		
+
 	case "firmware_ver":
 		context.FirmwareVer = value
-		
+
 	case "serial_num":
 		context.SerialNum = value
-		
+
 	case "hardware_id":
 		context.HardwareId = value
-		
+
 	case "uuid":
 		context.UUID = value
-		
+
 	case "interface":
 		context.Interface = value
-		
+
 	case "adv_enable_media2":
 		enable, err := strconv.Atoi(value)
 		if err != nil {
 			return fmt.Errorf("invalid adv_enable_media2 value: %v", err)
 		}
 		context.AdvEnableMedia2 = enable
-		
+
 	case "adv_fault_if_unknown":
 		fault, err := strconv.Atoi(value)
 		if err != nil {
 			return fmt.Errorf("invalid adv_fault_if_unknown value: %v", err)
 		}
 		context.AdvFaultIfUnknown = fault
-		
+
 	case "adv_fault_if_set":
 		fault, err := strconv.Atoi(value)
 		if err != nil {
 			return fmt.Errorf("invalid adv_fault_if_set value: %v", err)
 		}
 		context.AdvFaultIfSet = fault
-		
+
 	case "adv_synology_nvr":
 		synology, err := strconv.Atoi(value)
 		if err != nil {
 			return fmt.Errorf("invalid adv_synology_nvr value: %v", err)
 		}
 		context.AdvSynologyNVR = synology
-		
+
 	case "notification_port":
 		port, err := strconv.Atoi(value)
 		if err != nil {
@@ -293,7 +293,7 @@ func parseConfigValue(context *ServiceContext, key, value string) error {
 			return fmt.Errorf("notification_port value out of range: %d", port)
 		}
 		context.NotificationPort = port
-		
+
 	case "wsd_port":
 		port, err := strconv.Atoi(value)
 		if err != nil {
@@ -303,39 +303,39 @@ func parseConfigValue(context *ServiceContext, key, value string) error {
 			return fmt.Errorf("wsd_port value out of range: %d", port)
 		}
 		context.WSDPort = port
-		
+
 	default:
 		// Handle profile configurations
 		if strings.HasPrefix(key, "profile.") {
 			return parseProfileConfig(context, key, value)
 		}
-		
+
 		// Handle scope configurations
 		if strings.HasPrefix(key, "scope.") {
 			return parseScopeConfig(context, key, value)
 		}
-		
+
 		// Handle relay output configurations
 		if strings.HasPrefix(key, "relayoutput.") {
 			return parseRelayOutputConfig(context, key, value)
 		}
-		
+
 		// Handle PTZ configurations
 		if strings.HasPrefix(key, "ptz.") {
 			return parsePTZConfig(context, key, value)
 		}
-		
+
 		// Handle event configurations
 		if strings.HasPrefix(key, "event.") {
 			return parseEventConfig(context, key, value)
 		}
-		
+
 		// Handle events enable configuration
 		if key == "events_enable" {
 			return parseEventsEnableConfig(context, value)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -346,20 +346,20 @@ func parseProfileConfig(context *ServiceContext, key, value string) error {
 	if len(parts) < 3 {
 		return fmt.Errorf("invalid profile key format: %s", key)
 	}
-	
+
 	profileIndex, err := strconv.Atoi(parts[1])
 	if err != nil {
 		return fmt.Errorf("invalid profile index: %v", err)
 	}
-	
+
 	// Ensure we have enough profiles
 	for len(context.Profiles) <= profileIndex {
 		context.Profiles = append(context.Profiles, StreamProfile{})
 	}
-	
+
 	property := parts[2]
 	profile := &context.Profiles[profileIndex]
-	
+
 	switch property {
 	case "name":
 		profile.Name = value
@@ -386,7 +386,7 @@ func parseProfileConfig(context *ServiceContext, key, value string) error {
 	case "audio_decoder":
 		profile.AudioDecoder = parseAudioType(value)
 	}
-	
+
 	return nil
 }
 
@@ -397,17 +397,17 @@ func parseScopeConfig(context *ServiceContext, key, value string) error {
 	if len(parts) < 2 {
 		return fmt.Errorf("invalid scope key format: %s", key)
 	}
-	
+
 	scopeIndex, err := strconv.Atoi(parts[1])
 	if err != nil {
 		return fmt.Errorf("invalid scope index: %v", err)
 	}
-	
+
 	// Ensure we have enough scopes
 	for len(context.Scopes) <= scopeIndex {
 		context.Scopes = append(context.Scopes, "")
 	}
-	
+
 	context.Scopes[scopeIndex] = value
 	return nil
 }
@@ -419,20 +419,20 @@ func parseRelayOutputConfig(context *ServiceContext, key, value string) error {
 	if len(parts) < 3 {
 		return fmt.Errorf("invalid relay output key format: %s", key)
 	}
-	
+
 	relayIndex, err := strconv.Atoi(parts[1])
 	if err != nil {
 		return fmt.Errorf("invalid relay output index: %v", err)
 	}
-	
+
 	// Ensure we have enough relay outputs
 	for len(context.RelayOutputs) <= relayIndex {
 		context.RelayOutputs = append(context.RelayOutputs, RelayOutput{})
 	}
-	
+
 	property := parts[2]
 	relay := &context.RelayOutputs[relayIndex]
-	
+
 	switch property {
 	case "idle_state":
 		if value == "open" {
@@ -445,14 +445,14 @@ func parseRelayOutputConfig(context *ServiceContext, key, value string) error {
 	case "open_cmd":
 		relay.OpenCmd = value
 	}
-	
+
 	return nil
 }
 
 // parsePTZConfig parses PTZ-related configuration values
 func parsePTZConfig(context *ServiceContext, key, value string) error {
 	property := strings.TrimPrefix(key, "ptz.")
-	
+
 	switch property {
 	case "enable":
 		enable, err := strconv.Atoi(value)
@@ -531,7 +531,7 @@ func parsePTZConfig(context *ServiceContext, key, value string) error {
 	case "get_presets":
 		context.PTZNode.GetPresets = value
 	}
-	
+
 	return nil
 }
 
@@ -542,20 +542,20 @@ func parseEventConfig(context *ServiceContext, key, value string) error {
 	if len(parts) < 3 {
 		return fmt.Errorf("invalid event key format: %s", key)
 	}
-	
+
 	eventIndex, err := strconv.Atoi(parts[1])
 	if err != nil {
 		return fmt.Errorf("invalid event index: %v", err)
 	}
-	
+
 	// Ensure we have enough events
 	for len(context.Events) <= eventIndex {
 		context.Events = append(context.Events, Event{})
 	}
-	
+
 	property := parts[2]
 	event := &context.Events[eventIndex]
-	
+
 	switch property {
 	case "topic":
 		event.Topic = value
@@ -568,7 +568,7 @@ func parseEventConfig(context *ServiceContext, key, value string) error {
 	case "input_file":
 		event.InputFile = value
 	}
-	
+
 	return nil
 }
 
@@ -584,7 +584,7 @@ func parseEventsEnableConfig(context *ServiceContext, value string) error {
 	default:
 		context.EventsEnable = EVENTS_NONE
 	}
-	
+
 	return nil
 }
 

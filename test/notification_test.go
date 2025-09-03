@@ -11,7 +11,7 @@ import (
 func TestNotificationServerSubscribe(t *testing.T) {
 	// Give the server some time to start
 	time.Sleep(2 * time.Second)
-	
+
 	// Create a notification subscription request
 	subscribeRequest := `<?xml version="1.0" encoding="UTF-8"?>
 	<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope"
@@ -31,7 +31,7 @@ func TestNotificationServerSubscribe(t *testing.T) {
 			</wse:Subscribe>
 		</SOAP-ENV:Body>
 	</SOAP-ENV:Envelope>`
-	
+
 	// Send the request to the notification server
 	resp, err := http.Post("http://localhost:8082/notification", "application/soap+xml", bytes.NewBufferString(subscribeRequest))
 	if err != nil {
@@ -40,12 +40,12 @@ func TestNotificationServerSubscribe(t *testing.T) {
 		return
 	}
 	defer resp.Body.Close()
-	
+
 	// Check that we got a response
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status code 200, got %d", resp.StatusCode)
 	}
-	
+
 	// Check that the response contains expected notification elements
 	// This is a basic check - in a real test we would parse the XML response
 	t.Logf("Notification server subscribe test completed with status code: %d", resp.StatusCode)
@@ -55,7 +55,7 @@ func TestNotificationServerSubscribe(t *testing.T) {
 func TestNotificationServerPullMessages(t *testing.T) {
 	// Give the server some time to start
 	time.Sleep(2 * time.Second)
-	
+
 	// Create a PullMessages request
 	pullMessagesRequest := `<?xml version="1.0" encoding="UTF-8"?>
 	<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope"
@@ -72,7 +72,7 @@ func TestNotificationServerPullMessages(t *testing.T) {
 			</tev:PullMessages>
 		</SOAP-ENV:Body>
 	</SOAP-ENV:Envelope>`
-	
+
 	// Send the request to the notification server
 	resp, err := http.Post("http://localhost:8082/notification", "application/soap+xml", bytes.NewBufferString(pullMessagesRequest))
 	if err != nil {
@@ -81,12 +81,12 @@ func TestNotificationServerPullMessages(t *testing.T) {
 		return
 	}
 	defer resp.Body.Close()
-	
+
 	// Check that we got a response
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status code 200, got %d", resp.StatusCode)
 	}
-	
+
 	// Check that the response contains expected notification elements
 	// This is a basic check - in a real test we would parse the XML response
 	t.Logf("Notification server PullMessages test completed with status code: %d", resp.StatusCode)
@@ -96,7 +96,7 @@ func TestNotificationServerPullMessages(t *testing.T) {
 func TestNotificationServerGetEventProperties(t *testing.T) {
 	// Give the server some time to start
 	time.Sleep(2 * time.Second)
-	
+
 	// Create a GetEventProperties request
 	getEventPropertiesRequest := `<?xml version="1.0" encoding="UTF-8"?>
 	<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope"
@@ -110,7 +110,7 @@ func TestNotificationServerGetEventProperties(t *testing.T) {
 			<tev:GetEventProperties/>
 		</SOAP-ENV:Body>
 	</SOAP-ENV:Envelope>`
-	
+
 	// Send the request to the notification server
 	resp, err := http.Post("http://localhost:8082/notification", "application/soap+xml", bytes.NewBufferString(getEventPropertiesRequest))
 	if err != nil {
@@ -119,12 +119,12 @@ func TestNotificationServerGetEventProperties(t *testing.T) {
 		return
 	}
 	defer resp.Body.Close()
-	
+
 	// Check that we got a response
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status code 200, got %d", resp.StatusCode)
 	}
-	
+
 	// Check that the response contains expected notification elements
 	// This is a basic check - in a real test we would parse the XML response
 	t.Logf("Notification server GetEventProperties test completed with status code: %d", resp.StatusCode)

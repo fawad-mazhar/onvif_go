@@ -16,7 +16,7 @@ func StartWSDServer(cfg *config.ServiceContext) error {
 	// Initialize logging
 	logger.InitLogger(logger.INFO)
 	// logger.SetLevel(logger.INFO) - level already set during initialization
-	
+
 	// Configuration is passed as parameter
 	// Get the IP address of the first network interface
 	ip := getLocalIP()
@@ -26,14 +26,13 @@ func StartWSDServer(cfg *config.ServiceContext) error {
 		return err
 	}
 	logger.Info("WSD server detected local IP: %s", ip)
-	
-		
+
 	// Create HTTP server for WSD
 	http.HandleFunc("/wsd", func(w http.ResponseWriter, r *http.Request) {
 		// Handle WSD requests
 		handleWSDRequest(w, r, cfg, ip)
 	})
-	
+
 	// Start the HTTP server
 	addr := fmt.Sprintf(":%d", cfg.WSDPort)
 	logger.Info("Starting WSD server on port %d", cfg.WSDPort)
@@ -52,20 +51,20 @@ func getLocalIP() string {
 		logger.Warn("Failed to get network interfaces: %v", err)
 		return ""
 	}
-	
+
 	// Iterate through interfaces to find the first one with an IP address
 	for _, iface := range interfaces {
 		// Skip loopback interfaces
 		if iface.Flags&net.FlagLoopback != 0 {
 			continue
 		}
-		
+
 		// Get addresses for the interface
 		addrs, err := iface.Addrs()
 		if err != nil {
 			continue
 		}
-		
+
 		// Find the first IPv4 address
 		for _, addr := range addrs {
 			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
@@ -75,7 +74,7 @@ func getLocalIP() string {
 			}
 		}
 	}
-	
+
 	return ""
 }
 
@@ -91,10 +90,10 @@ func handleWSDRequest(w http.ResponseWriter, r *http.Request, cfg *config.Servic
 
 	request := string(body)
 	logger.Debug("WSD request: %s", request)
-	
+
 	// Set response headers
 	w.Header().Set("Content-Type", "application/soap+xml")
-	
+
 	// Handle different WSD actions
 	switch {
 	case strings.Contains(request, "Probe"):
@@ -139,12 +138,12 @@ func generateProbeMatchesResponse(cfg *config.ServiceContext, ip string) string 
 		</wsd:ProbeMatches>
 	</soap:Body>
 </soap:Envelope>`
-	
+
 	// Replace placeholders with actual values
 	response := strings.Replace(template, "%MESSAGE_ID%", "urn:uuid:"+generateUUID(), -1)
 	response = strings.Replace(response, "%RELATES_TO%", "urn:uuid:example", -1)
 	response = strings.Replace(response, "%UUID%", cfg.UUID, -1)
-	
+
 	return response
 }
 
@@ -172,14 +171,13 @@ func generateResolveResponse(cfg *config.ServiceContext, ip string) string {
 		</wsd:ResolveMatches>
 	</soap:Body>
 </soap:Envelope>`
-	
+
 	// Replace placeholders with actual values
 	response := strings.Replace(template, "%MESSAGE_ID%", "urn:uuid:"+generateUUID(), -1)
 	response = strings.Replace(response, "%UUID%", cfg.UUID, -1)
-	
+
 	return response
 }
-
 
 // generateUUID generates a simple UUID for WSD responses
 func generateUUID() string {

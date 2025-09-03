@@ -7,9 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
 	"github.com/fawad-mazhar/onvif-go/internal/auth"
 	"github.com/fawad-mazhar/onvif-go/internal/config"
 	"github.com/fawad-mazhar/onvif-go/internal/logger"
@@ -18,6 +15,9 @@ import (
 	"github.com/fawad-mazhar/onvif-go/pkg/services/events"
 	"github.com/fawad-mazhar/onvif-go/pkg/services/media"
 	"github.com/fawad-mazhar/onvif-go/pkg/services/ptz"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 )
 
 // StartHTTPServer starts the integrated HTTP ONVIF server with Chi router and CORS
@@ -49,7 +49,7 @@ func StartHTTPServer(cfg *config.ServiceContext) error {
 	r.Route("/onvif", func(r chi.Router) {
 		// Add custom middleware for ONVIF requests
 		r.Use(onvifMiddleware(cfg))
-		
+
 		// ONVIF service endpoints
 		r.Post("/device_service", createONVIFHandler(cfg, "device_service"))
 		r.Post("/media_service", createONVIFHandler(cfg, "media_service"))
@@ -82,7 +82,6 @@ func StartHTTPServer(cfg *config.ServiceContext) error {
 	return http.ListenAndServe(addr, r)
 }
 
-
 // processSOAPRequest routes SOAP requests to the appropriate service handler
 func processSOAPRequest(w http.ResponseWriter, soapAction, serviceName string, cfg *config.ServiceContext) {
 	switch serviceName {
@@ -113,7 +112,7 @@ func processSOAPRequest(w http.ResponseWriter, soapAction, serviceName string, c
 			deviceService.GetCapabilitiesHTTP(w)
 		case strings.Contains(soapAction, "GetScopes"):
 			deviceService := &device.ServiceContext{
-				Port: cfg.Port,
+				Port:   cfg.Port,
 				Scopes: cfg.Scopes,
 			}
 			deviceService.GetScopesHTTP(w)
@@ -148,7 +147,7 @@ func processSOAPRequest(w http.ResponseWriter, soapAction, serviceName string, c
 			mediaService.GetServiceCapabilitiesHTTP(w)
 		case strings.Contains(soapAction, "GetProfiles"):
 			mediaService := &media.ServiceContext{
-				Port: cfg.Port,
+				Port:     cfg.Port,
 				Profiles: convertMediaProfiles(cfg.Profiles),
 			}
 			mediaService.GetProfilesHTTP(w)
@@ -165,7 +164,7 @@ func processSOAPRequest(w http.ResponseWriter, soapAction, serviceName string, c
 			ptzService.GetServiceCapabilitiesHTTP(w)
 		case strings.Contains(soapAction, "GetNodes"):
 			ptzService := &ptz.ServiceContext{
-				Port: cfg.Port,
+				Port:     cfg.Port,
 				PTZNodes: convertPTZNodes(cfg.PTZNode),
 			}
 			ptzService.GetNodesHTTP(w)
@@ -182,7 +181,7 @@ func processSOAPRequest(w http.ResponseWriter, soapAction, serviceName string, c
 			eventsService.GetServiceCapabilitiesHTTP(w)
 		case strings.Contains(soapAction, "GetEventProperties"):
 			eventsService := &events.ServiceContext{
-				Port: cfg.Port,
+				Port:   cfg.Port,
 				Events: convertEvents(cfg.Events),
 			}
 			eventsService.GetEventPropertiesHTTP(w)
@@ -199,7 +198,7 @@ func processSOAPRequest(w http.ResponseWriter, soapAction, serviceName string, c
 			deviceioService.GetServiceCapabilitiesHTTP(w)
 		case strings.Contains(soapAction, "GetRelayOutputs"):
 			deviceioService := &deviceio.ServiceContext{
-				Port: cfg.Port,
+				Port:         cfg.Port,
 				RelayOutputs: convertRelayOutputs(cfg.RelayOutputs),
 			}
 			deviceioService.GetRelayOutputsHTTP(w)
@@ -257,10 +256,10 @@ func onvifMiddleware(cfg *config.ServiceContext) func(http.Handler) http.Handler
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Set SOAP-specific headers
 			w.Header().Set("Content-Type", "application/soap+xml; charset=utf-8")
-			
+
 			// Log ONVIF requests
 			logger.Debug("ONVIF request: %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -283,7 +282,7 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 			sendSOAPError(w, "Empty SOAP request")
 			return
 		}
-		
+
 		// Parse the SOAP action from the request
 		soapAction := parseSOAPAction(soapRequest)
 		if soapAction == "" {
@@ -291,7 +290,7 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 			sendSOAPError(w, "Failed to parse SOAP action")
 			return
 		}
-		
+
 		// Validate authentication if required
 		if cfg.User != "" && cfg.Password != "" {
 			usernameToken, err := auth.ParseSOAPHeader(soapRequest)
@@ -300,18 +299,18 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 				sendSOAPAuthError(w)
 				return
 			}
-			
+
 			authContext := &auth.ServiceContext{
 				Username: cfg.User,
 				Password: cfg.Password,
 			}
-			
+
 			if !authContext.ValidateUsernameToken(usernameToken) {
 				logger.Warn("Authentication failed")
 				sendSOAPAuthError(w)
 				return
 			}
-			
+
 			// Validate timestamp to prevent replay attacks
 			if !auth.ValidateNonceTimestamp(usernameToken.Created, 300) { // 5 minutes max age
 				logger.Warn("Nonce timestamp validation failed")
@@ -338,32 +337,32 @@ func parseSOAPAction(soapRequest string) string {
 	} else {
 		actionStart += len("<soap:Body>")
 	}
-	
+
 	// Skip whitespace and newlines
-	for actionStart < len(soapRequest) && (soapRequest[actionStart] == ' ' || 
-		soapRequest[actionStart] == '\n' || soapRequest[actionStart] == '\r' || 
+	for actionStart < len(soapRequest) && (soapRequest[actionStart] == ' ' ||
+		soapRequest[actionStart] == '\n' || soapRequest[actionStart] == '\r' ||
 		soapRequest[actionStart] == '\t') {
 		actionStart++
 	}
-	
+
 	// Find the next opening tag
 	if actionStart >= len(soapRequest) || soapRequest[actionStart] != '<' {
 		return ""
 	}
-	
+
 	actionEnd := strings.Index(soapRequest[actionStart:], ">")
 	if actionEnd == -1 {
 		return ""
 	}
-	
+
 	// Extract the tag name
-	tag := soapRequest[actionStart+1:actionStart+actionEnd]
-	
+	tag := soapRequest[actionStart+1 : actionStart+actionEnd]
+
 	// Remove attributes if any
 	if strings.Contains(tag, " ") {
 		tag = tag[:strings.Index(tag, " ")]
 	}
-	
+
 	// Remove namespace prefix for comparison
 	if strings.Contains(tag, ":") {
 		parts := strings.Split(tag, ":")
@@ -371,27 +370,24 @@ func parseSOAPAction(soapRequest string) string {
 			tag = parts[len(parts)-1]
 		}
 	}
-	
+
 	// Handle self-closing tags
-	if strings.HasSuffix(tag, "/") {
-		tag = tag[:len(tag)-1]
-	}
-	
+	tag = strings.TrimSuffix(tag, "/")
+
 	return tag
 }
-
 
 // convertMediaProfiles converts config.StreamProfile to media.Profile
 func convertMediaProfiles(configProfiles []config.StreamProfile) []media.Profile {
 	mediaProfiles := make([]media.Profile, len(configProfiles))
 	for i, cp := range configProfiles {
 		mediaProfiles[i] = media.Profile{
-			Name:      cp.Name,
-			Width:     cp.Width,
-			Height:    cp.Height,
-			URL:       cp.URL,
-			SnapURL:   cp.SnapURL,
-			Type:      cp.Type.String(),
+			Name:         cp.Name,
+			Width:        cp.Width,
+			Height:       cp.Height,
+			URL:          cp.URL,
+			SnapURL:      cp.SnapURL,
+			Type:         cp.Type.String(),
 			AudioEncoder: cp.AudioEncoder.String(),
 			AudioDecoder: cp.AudioDecoder.String(),
 		}
@@ -399,31 +395,20 @@ func convertMediaProfiles(configProfiles []config.StreamProfile) []media.Profile
 	return mediaProfiles
 }
 
-// convertDeviceProfiles converts config.StreamProfile to device.Profile
-func convertDeviceProfiles(configProfiles []config.StreamProfile) []device.Profile {
-	deviceProfiles := make([]device.Profile, len(configProfiles))
-	for i, cp := range configProfiles {
-		deviceProfiles[i] = device.Profile{
-			Name: cp.Name,
-			Type: cp.Type.String(),
-		}
-	}
-	return deviceProfiles
-}
 
 // convertPTZNodes converts config.PTZNode to ptz.PTZNode
 func convertPTZNodes(configPTZNode config.PTZNode) []ptz.PTZNode {
 	// For now, we're creating a single PTZ node from the config
 	ptzNode := ptz.PTZNode{
-		Name:      "PTZ Node",
-		Token:     "PTZToken",
-		PTZType:   "PanTiltZoom",
-		MinPan:    configPTZNode.MinStepX,
-		MaxPan:    configPTZNode.MaxStepX,
-		MinTilt:   configPTZNode.MinStepY,
-		MaxTilt:   configPTZNode.MaxStepY,
-		MinZoom:   configPTZNode.MinStepZ,
-		MaxZoom:   configPTZNode.MaxStepZ,
+		Name:    "PTZ Node",
+		Token:   "PTZToken",
+		PTZType: "PanTiltZoom",
+		MinPan:  configPTZNode.MinStepX,
+		MaxPan:  configPTZNode.MaxStepX,
+		MinTilt: configPTZNode.MinStepY,
+		MaxTilt: configPTZNode.MaxStepY,
+		MinZoom: configPTZNode.MinStepZ,
+		MaxZoom: configPTZNode.MaxStepZ,
 	}
 	return []ptz.PTZNode{ptzNode}
 }

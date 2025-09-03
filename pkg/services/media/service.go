@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
-	
+
 	"github.com/fawad-mazhar/onvif-go/internal/xml"
 )
 
@@ -27,131 +27,6 @@ type Profile struct {
 	AudioDecoder string
 }
 
-// GetServiceCapabilities handles the GetServiceCapabilities ONVIF media service method
-func (s *ServiceContext) GetServiceCapabilities() error {
-	// Create replacements map for template processing
-	replacements := map[string]string{
-		"%PROFILE_COUNT%": fmt.Sprintf("%d", len(s.Profiles)),
-	}
-	
-	// Process template and write response
-	templatePath := filepath.Join("service_files", "media", "GetServiceCapabilities.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-	
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetServiceCapabilities template: %v", err)
-	}
-	
-	xml.WriteResponse(response, "")
-	return nil
-}
-
-// GetProfiles handles the GetProfiles ONVIF media service method
-func (s *ServiceContext) GetProfiles() error {
-	// Create profile elements
-	profileElements := make([]string, len(s.Profiles))
-	for i, profile := range s.Profiles {
-		profileElements[i] = s.createProfileElement(profile, fmt.Sprintf("Profile%d", i))
-	}
-	
-	profilesXML := strings.Join(profileElements, "\n")
-	
-	// Create replacements map for template processing
-	replacements := map[string]string{
-		"%PROFILES%": profilesXML,
-	}
-	
-	// Process template and write response
-	templatePath := filepath.Join("service_files", "media", "GetProfiles.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-	
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetProfiles template: %v", err)
-	}
-	
-	xml.WriteResponse(response, "")
-	return nil
-}
-
-// GetStreamUri handles the GetStreamUri ONVIF media service method
-func (s *ServiceContext) GetStreamUri(profileToken string) error {
-	// Find the profile by token
-	var profile *Profile
-	for i, p := range s.Profiles {
-		if fmt.Sprintf("Profile%d", i) == profileToken {
-			profile = &p
-			break
-		}
-	}
-	
-	if profile == nil {
-		return fmt.Errorf("profile not found: %s", profileToken)
-	}
-	
-	// Create replacements map for template processing
-	replacements := map[string]string{
-		"%STREAM_URL%": profile.URL,
-	}
-	
-	// Process template and write response
-	templatePath := filepath.Join("service_files", "media", "GetStreamUri.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-	
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetStreamUri template: %v", err)
-	}
-	
-	xml.WriteResponse(response, "")
-	return nil
-}
-
-// GetSnapshotUri handles the GetSnapshotUri ONVIF media service method
-func (s *ServiceContext) GetSnapshotUri(profileToken string) error {
-	// Find the profile by token
-	var profile *Profile
-	for i, p := range s.Profiles {
-		if fmt.Sprintf("Profile%d", i) == profileToken {
-			profile = &p
-			break
-		}
-	}
-	
-	if profile == nil {
-		return fmt.Errorf("profile not found: %s", profileToken)
-	}
-	
-	// Create replacements map for template processing
-	replacements := map[string]string{
-		"%SNAPSHOT_URL%": profile.SnapURL,
-	}
-	
-	// Process template and write response
-	templatePath := filepath.Join("service_files", "media", "GetSnapshotUri.xml")
-	if !xml.FileExists(templatePath) {
-		// Fallback to generic template if service-specific one doesn't exist
-		templatePath = filepath.Join("generic_files", "Empty.xml")
-	}
-	
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return fmt.Errorf("failed to process GetSnapshotUri template: %v", err)
-	}
-	
-	xml.WriteResponse(response, "")
-	return nil
-}
 
 // createProfileElement creates an XML element for a profile
 func (s *ServiceContext) createProfileElement(profile Profile, token string) string {
@@ -163,7 +38,7 @@ func (s *ServiceContext) createProfileElement(profile Profile, token string) str
                         <tt:SourceToken>VideoSource</tt:SourceToken>
                         <tt:Bounds x="0" y="0" width="%d" height="%d"/>
                     </trt:VideoSourceConfiguration>`, token, profile.Width, profile.Height)
-	
+
 	// Create video encoder configuration based on profile type
 	videoEncoderConfig := ""
 	switch profile.Type {
@@ -254,7 +129,7 @@ func (s *ServiceContext) createProfileElement(profile Profile, token string) str
                         <tt:SessionTimeout>PT60S</tt:SessionTimeout>
                     </trt:VideoEncoderConfiguration>`, token, profile.Width, profile.Height)
 	}
-	
+
 	// Create profile element
 	profileElement := fmt.Sprintf(`
                 <trt:Profiles token="%s" fixed="true">
@@ -262,7 +137,7 @@ func (s *ServiceContext) createProfileElement(profile Profile, token string) str
                     %s
                     %s
                 </trt:Profiles>`, token, profile.Name, videoSourceConfig, videoEncoderConfig)
-	
+
 	return profileElement
 }
 
@@ -274,19 +149,19 @@ func (s *ServiceContext) GetServiceCapabilitiesHTTP(w http.ResponseWriter) error
 	replacements := map[string]string{
 		"%PROFILE_COUNT%": fmt.Sprintf("%d", len(s.Profiles)),
 	}
-	
+
 	// Process template and write response
 	templatePath := filepath.Join("service_files", "media", "GetServiceCapabilities.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
 	}
-	
+
 	response, err := xml.ProcessTemplate(templatePath, replacements)
 	if err != nil {
 		return fmt.Errorf("failed to process GetServiceCapabilities template: %v", err)
 	}
-	
+
 	w.Write([]byte(response))
 	return nil
 }
@@ -298,26 +173,26 @@ func (s *ServiceContext) GetProfilesHTTP(w http.ResponseWriter) error {
 	for i, profile := range s.Profiles {
 		profileElements[i] = s.createProfileElement(profile, fmt.Sprintf("Profile%d", i))
 	}
-	
+
 	profilesXML := strings.Join(profileElements, "\n")
-	
+
 	// Create replacements map for template processing
 	replacements := map[string]string{
 		"%PROFILES%": profilesXML,
 	}
-	
+
 	// Process template and write response
 	templatePath := filepath.Join("service_files", "media", "GetProfiles.xml")
 	if !xml.FileExists(templatePath) {
 		// Fallback to generic template if service-specific one doesn't exist
 		templatePath = filepath.Join("generic_files", "Empty.xml")
 	}
-	
+
 	response, err := xml.ProcessTemplate(templatePath, replacements)
 	if err != nil {
 		return fmt.Errorf("failed to process GetProfiles template: %v", err)
 	}
-	
+
 	w.Write([]byte(response))
 	return nil
 }
