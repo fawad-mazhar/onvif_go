@@ -2,6 +2,7 @@ package media
 
 import (
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"strings"
 	
@@ -263,4 +264,60 @@ func (s *ServiceContext) createProfileElement(profile Profile, token string) str
                 </trt:Profiles>`, token, profile.Name, videoSourceConfig, videoEncoderConfig)
 	
 	return profileElement
+}
+
+// HTTP-compatible methods that write to http.ResponseWriter
+
+// GetServiceCapabilitiesHTTP handles the GetServiceCapabilities ONVIF media service method via HTTP
+func (s *ServiceContext) GetServiceCapabilitiesHTTP(w http.ResponseWriter) error {
+	// Create replacements map for template processing
+	replacements := map[string]string{
+		"%PROFILE_COUNT%": fmt.Sprintf("%d", len(s.Profiles)),
+	}
+	
+	// Process template and write response
+	templatePath := filepath.Join("service_files", "media", "GetServiceCapabilities.xml")
+	if !xml.FileExists(templatePath) {
+		// Fallback to generic template if service-specific one doesn't exist
+		templatePath = filepath.Join("generic_files", "Empty.xml")
+	}
+	
+	response, err := xml.ProcessTemplate(templatePath, replacements)
+	if err != nil {
+		return fmt.Errorf("failed to process GetServiceCapabilities template: %v", err)
+	}
+	
+	w.Write([]byte(response))
+	return nil
+}
+
+// GetProfilesHTTP handles the GetProfiles ONVIF media service method via HTTP
+func (s *ServiceContext) GetProfilesHTTP(w http.ResponseWriter) error {
+	// Create profile elements
+	profileElements := make([]string, len(s.Profiles))
+	for i, profile := range s.Profiles {
+		profileElements[i] = s.createProfileElement(profile, fmt.Sprintf("Profile%d", i))
+	}
+	
+	profilesXML := strings.Join(profileElements, "\n")
+	
+	// Create replacements map for template processing
+	replacements := map[string]string{
+		"%PROFILES%": profilesXML,
+	}
+	
+	// Process template and write response
+	templatePath := filepath.Join("service_files", "media", "GetProfiles.xml")
+	if !xml.FileExists(templatePath) {
+		// Fallback to generic template if service-specific one doesn't exist
+		templatePath = filepath.Join("generic_files", "Empty.xml")
+	}
+	
+	response, err := xml.ProcessTemplate(templatePath, replacements)
+	if err != nil {
+		return fmt.Errorf("failed to process GetProfiles template: %v", err)
+	}
+	
+	w.Write([]byte(response))
+	return nil
 }

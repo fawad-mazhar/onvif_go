@@ -21,17 +21,7 @@ func main() {
 		logger.Fatal("Failed to load config: %v", err)
 	}
 
-	// Check if we're being called as a CGI subprocess (with service name argument)
-	if len(os.Args) > 1 {
-		// Handle ONVIF request as CGI subprocess
-		err := server.StartONVIFServer(cfg)
-		if err != nil {
-			logger.Fatal("ONVIF server error: %v", err)
-		}
-		return
-	}
-
-	// Start ONVIF HTTP server
+	// Start integrated ONVIF HTTP server
 	go func() {
 		err := server.StartHTTPServer(cfg)
 		if err != nil {

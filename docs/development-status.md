@@ -1,3 +1,5 @@
+Note: This status is mainly based on what is needed in si-manager project.
+
 ### 1. Device Management Service
 
 | Operation | Status | Implementation |

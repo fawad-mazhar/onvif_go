@@ -2,7 +2,8 @@ package server
 
 import (
 	"fmt"
-	"os"
+	"io"
+	"net/http"
 	"strings"
 
 	"github.com/fawad-mazhar/onvif-go/internal/auth"
@@ -15,42 +16,69 @@ import (
 	"github.com/fawad-mazhar/onvif-go/pkg/services/ptz"
 )
 
-func StartONVIFServer(cfg *config.ServiceContext) error {
+// StartHTTPServer starts the integrated HTTP ONVIF server
+func StartHTTPServer(cfg *config.ServiceContext) error {
 	// Initialize logging
 	logger.InitLogger(logger.INFO)
-	// logger.SetLevel(logger.INFO) - level already set during initialization
-	
-	// Configuration is passed as parameter
-	// Set up service contexts with converted types
-	
-	// Get service name from command line arguments
-	serviceName := "device_service"
-	if len(os.Args) > 1 {
-		serviceName = os.Args[1]
+
+	// Create HTTP handlers for all ONVIF services
+	http.HandleFunc("/onvif/device_service", func(w http.ResponseWriter, r *http.Request) {
+		handleONVIFRequest(w, r, cfg, "device_service")
+	})
+
+	http.HandleFunc("/onvif/media_service", func(w http.ResponseWriter, r *http.Request) {
+		handleONVIFRequest(w, r, cfg, "media_service")
+	})
+
+	http.HandleFunc("/onvif/ptz_service", func(w http.ResponseWriter, r *http.Request) {
+		handleONVIFRequest(w, r, cfg, "ptz_service")
+	})
+
+	http.HandleFunc("/onvif/events_service", func(w http.ResponseWriter, r *http.Request) {
+		handleONVIFRequest(w, r, cfg, "events_service")
+	})
+
+	http.HandleFunc("/onvif/deviceio_service", func(w http.ResponseWriter, r *http.Request) {
+		handleONVIFRequest(w, r, cfg, "deviceio_service")
+	})
+
+	// Start the HTTP server
+	addr := fmt.Sprintf(":%d", cfg.Port)
+	logger.Info("Starting integrated HTTP ONVIF server on port %d", cfg.Port)
+	logger.Info("ONVIF server listening on address: %s", addr)
+	return http.ListenAndServe(addr, nil)
+}
+
+// handleONVIFRequest handles HTTP ONVIF requests directly
+func handleONVIFRequest(w http.ResponseWriter, r *http.Request, cfg *config.ServiceContext, serviceName string) {
+	// Only accept POST requests
+	if r.Method != "POST" {
+		logger.Warn("Invalid request method: %s", r.Method)
+		http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
+		return
 	}
-	
-	// Parse the request method
-	requestMethod := os.Getenv("REQUEST_METHOD")
-	if requestMethod != "POST" {
-		logger.Warn("Invalid request method: %s", requestMethod)
-		handleError("Invalid request method")
-		return nil
+
+	// Read the SOAP request from the request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		logger.Warn("Failed to read request body: %v", err)
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
 	}
-	
-	// Read the SOAP request from stdin
-	soapRequest := readSOAPRequest()
+
+	soapRequest := string(body)
 	if soapRequest == "" {
 		logger.Warn("Empty SOAP request")
-		handleError("Empty SOAP request")
-		return nil
+		sendSOAPError(w, "Empty SOAP request")
+		return
 	}
 	
 	// Parse the SOAP action from the request
 	soapAction := parseSOAPAction(soapRequest)
 	if soapAction == "" {
 		logger.Warn("Failed to parse SOAP action")
-		handleError("Failed to parse SOAP action")
-		return nil
+		sendSOAPError(w, "Failed to parse SOAP action")
+		return
 	}
 	
 	// Validate authentication if required
@@ -58,8 +86,8 @@ func StartONVIFServer(cfg *config.ServiceContext) error {
 		usernameToken, err := auth.ParseSOAPHeader(soapRequest)
 		if err != nil {
 			logger.Warn("Failed to parse SOAP header: %v", err)
-			handleAuthError()
-			return nil
+			sendSOAPAuthError(w)
+			return
 		}
 		
 		authContext := &auth.ServiceContext{
@@ -69,17 +97,27 @@ func StartONVIFServer(cfg *config.ServiceContext) error {
 		
 		if !authContext.ValidateUsernameToken(usernameToken) {
 			logger.Warn("Authentication failed")
-			handleAuthError()
+			sendSOAPAuthError(w)
+			return
 		}
 		
 		// Validate timestamp to prevent replay attacks
 		if !auth.ValidateNonceTimestamp(usernameToken.Created, 300) { // 5 minutes max age
 			logger.Warn("Nonce timestamp validation failed")
-			return fmt.Errorf("nonce timestamp validation failed")
+			sendSOAPError(w, "Nonce timestamp validation failed")
+			return
 		}
 	}
-	
+
+	// Set the content type for SOAP response
+	w.Header().Set("Content-Type", "application/soap+xml; charset=utf-8")
+
 	// Route the request to the appropriate service handler
+	processSOAPRequest(w, soapAction, serviceName, cfg)
+}
+
+// processSOAPRequest routes SOAP requests to the appropriate service handler
+func processSOAPRequest(w http.ResponseWriter, soapAction, serviceName string, cfg *config.ServiceContext) {
 	switch serviceName {
 	case "device_service":
 		switch {
@@ -87,7 +125,7 @@ func StartONVIFServer(cfg *config.ServiceContext) error {
 			deviceService := &device.ServiceContext{
 				Port: cfg.Port,
 			}
-			deviceService.GetServices()
+			deviceService.GetServicesHTTP(w)
 		case strings.Contains(soapAction, "GetDeviceInformation"):
 			deviceService := &device.ServiceContext{
 				Port:         cfg.Port,
@@ -100,39 +138,39 @@ func StartONVIFServer(cfg *config.ServiceContext) error {
 				PTZEnable:    cfg.PTZNode.Enable == 1,
 				Media2Enable: cfg.AdvEnableMedia2 == 1,
 			}
-			deviceService.GetDeviceInformation()
+			deviceService.GetDeviceInformationHTTP(w)
 		case strings.Contains(soapAction, "GetCapabilities"):
 			deviceService := &device.ServiceContext{
 				Port: cfg.Port,
 			}
-			deviceService.GetCapabilities()
+			deviceService.GetCapabilitiesHTTP(w)
 		case strings.Contains(soapAction, "GetScopes"):
 			deviceService := &device.ServiceContext{
 				Port: cfg.Port,
 				Scopes: cfg.Scopes,
 			}
-			deviceService.GetScopes()
+			deviceService.GetScopesHTTP(w)
 		case strings.Contains(soapAction, "SystemReboot"):
 			deviceService := &device.ServiceContext{}
-			deviceService.SystemReboot()
+			deviceService.SystemRebootHTTP(w)
 		case strings.Contains(soapAction, "GetSystemDateAndTime"):
 			deviceService := &device.ServiceContext{}
-			deviceService.GetSystemDateAndTime()
+			deviceService.GetSystemDateAndTimeHTTP(w)
 		case strings.Contains(soapAction, "GetUsers"):
 			deviceService := &device.ServiceContext{}
-			deviceService.GetUsers()
+			deviceService.GetUsersHTTP(w)
 		case strings.Contains(soapAction, "GetWsdlUrl"):
 			deviceService := &device.ServiceContext{}
-			deviceService.GetWsdlUrl()
+			deviceService.GetWsdlUrlHTTP(w)
 		case strings.Contains(soapAction, "GetNetworkInterfaces"):
 			deviceService := &device.ServiceContext{}
-			deviceService.GetNetworkInterfaces()
+			deviceService.GetNetworkInterfacesHTTP(w)
 		case strings.Contains(soapAction, "GetDiscoveryMode"):
 			deviceService := &device.ServiceContext{}
-			deviceService.GetDiscoveryMode()
+			deviceService.GetDiscoveryModeHTTP(w)
 		default:
 			logger.Warn("Unsupported SOAP action: %s", soapAction)
-			handleError("Unsupported SOAP action")
+			sendSOAPError(w, "Unsupported SOAP action")
 		}
 	case "media_service":
 		switch {
@@ -140,16 +178,16 @@ func StartONVIFServer(cfg *config.ServiceContext) error {
 			mediaService := &media.ServiceContext{
 				Port: cfg.Port,
 			}
-			mediaService.GetServiceCapabilities()
+			mediaService.GetServiceCapabilitiesHTTP(w)
 		case strings.Contains(soapAction, "GetProfiles"):
 			mediaService := &media.ServiceContext{
 				Port: cfg.Port,
 				Profiles: convertMediaProfiles(cfg.Profiles),
 			}
-			mediaService.GetProfiles()
+			mediaService.GetProfilesHTTP(w)
 		default:
 			logger.Warn("Unsupported SOAP action: %s", soapAction)
-			handleError("Unsupported SOAP action")
+			sendSOAPError(w, "Unsupported SOAP action")
 		}
 	case "ptz_service":
 		switch {
@@ -157,16 +195,16 @@ func StartONVIFServer(cfg *config.ServiceContext) error {
 			ptzService := &ptz.ServiceContext{
 				Port: cfg.Port,
 			}
-			ptzService.GetServiceCapabilities()
+			ptzService.GetServiceCapabilitiesHTTP(w)
 		case strings.Contains(soapAction, "GetNodes"):
 			ptzService := &ptz.ServiceContext{
 				Port: cfg.Port,
 				PTZNodes: convertPTZNodes(cfg.PTZNode),
 			}
-			ptzService.GetNodes()
+			ptzService.GetNodesHTTP(w)
 		default:
 			logger.Warn("Unsupported SOAP action: %s", soapAction)
-			handleError("Unsupported SOAP action")
+			sendSOAPError(w, "Unsupported SOAP action")
 		}
 	case "events_service":
 		switch {
@@ -174,16 +212,16 @@ func StartONVIFServer(cfg *config.ServiceContext) error {
 			eventsService := &events.ServiceContext{
 				Port: cfg.Port,
 			}
-			eventsService.GetServiceCapabilities()
+			eventsService.GetServiceCapabilitiesHTTP(w)
 		case strings.Contains(soapAction, "GetEventProperties"):
 			eventsService := &events.ServiceContext{
 				Port: cfg.Port,
 				Events: convertEvents(cfg.Events),
 			}
-			eventsService.GetEventProperties()
+			eventsService.GetEventPropertiesHTTP(w)
 		default:
 			logger.Warn("Unsupported SOAP action: %s", soapAction)
-			handleError("Unsupported SOAP action")
+			sendSOAPError(w, "Unsupported SOAP action")
 		}
 	case "deviceio_service":
 		switch {
@@ -191,41 +229,59 @@ func StartONVIFServer(cfg *config.ServiceContext) error {
 			deviceioService := &deviceio.ServiceContext{
 				Port: cfg.Port,
 			}
-			deviceioService.GetServiceCapabilities()
+			deviceioService.GetServiceCapabilitiesHTTP(w)
 		case strings.Contains(soapAction, "GetRelayOutputs"):
 			deviceioService := &deviceio.ServiceContext{
 				Port: cfg.Port,
 				RelayOutputs: convertRelayOutputs(cfg.RelayOutputs),
 			}
-			deviceioService.GetRelayOutputs()
+			deviceioService.GetRelayOutputsHTTP(w)
 		default:
 			logger.Warn("Unsupported SOAP action: %s", soapAction)
-			handleError("Unsupported SOAP action")
+			sendSOAPError(w, "Unsupported SOAP action")
 		}
 	default:
 		logger.Warn("Unsupported service: %s", serviceName)
-		handleError("Unsupported service")
+		sendSOAPError(w, "Unsupported service")
 	}
-	return nil
 }
 
-// readSOAPRequest reads the SOAP request from stdin
-func readSOAPRequest() string {
-	// Get content length from environment
-	contentLength := os.Getenv("CONTENT_LENGTH")
-	if contentLength == "" {
-		return ""
-	}
-	
-	// Read the request body
-	data := make([]byte, 1024)
-	n, err := os.Stdin.Read(data)
-	if err != nil {
-		logger.Warn("Failed to read SOAP request: %v", err)
-		return ""
-	}
-	
-	return string(data[:n])
+// sendSOAPError sends a SOAP fault response for errors
+func sendSOAPError(w http.ResponseWriter, message string) {
+	w.Header().Set("Content-Type", "application/soap+xml; charset=utf-8")
+	w.WriteHeader(http.StatusInternalServerError)
+	fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:tns="http://www.onvif.org/ver10/device/wsdl">
+  <soap:Body>
+    <soap:Fault>
+      <soap:Code>
+        <soap:Value>soap:Receiver</soap:Value>
+      </soap:Code>
+      <soap:Reason>
+        <soap:Text>%s</soap:Text>
+      </soap:Reason>
+    </soap:Fault>
+  </soap:Body>
+</soap:Envelope>`, message)
+}
+
+// sendSOAPAuthError sends a SOAP fault response for authentication errors
+func sendSOAPAuthError(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/soap+xml; charset=utf-8")
+	w.WriteHeader(http.StatusUnauthorized)
+	fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:tns="http://www.onvif.org/ver10/device/wsdl">
+  <soap:Body>
+    <soap:Fault>
+      <soap:Code>
+        <soap:Value>soap:Sender</soap:Value>
+      </soap:Code>
+      <soap:Reason>
+        <soap:Text>Authentication failed</soap:Text>
+      </soap:Reason>
+    </soap:Fault>
+  </soap:Body>
+</soap:Envelope>`)
 }
 
 // parseSOAPAction extracts the SOAP action from the request
@@ -283,19 +339,6 @@ func parseSOAPAction(soapRequest string) string {
 	return tag
 }
 
-// handleError sends a generic error response
-func handleError(message string) {
-	// For now, we'll just send a simple error response
-	fmt.Printf("Content-Type: application/soap+xml\r\n\r\n")
-	fmt.Printf("<error>%s</error>", message)
-}
-
-// handleAuthError sends an authentication error response
-func handleAuthError() {
-	// For now, we'll just send a simple authentication error response
-	fmt.Printf("Content-Type: application/soap+xml\r\n\r\n")
-	fmt.Printf("<error>Authentication failed</error>")
-}
 
 // convertMediaProfiles converts config.StreamProfile to media.Profile
 func convertMediaProfiles(configProfiles []config.StreamProfile) []media.Profile {

@@ -251,7 +251,7 @@ if [ "$QUICK_TEST" != true ]; then
         echo "Testing WSD Probe request..."
         curl -X POST "$WSD_URL/wsd" \
           -H "Content-Type: application/soap+xml" \
-          -d @wsd_probe.xml \
+          -d @"$SOAP_DIR/wsd_probe.xml" \
           --silent --show-error
     else
         echo "⚠️ WSD server not available - skipping discovery test"
@@ -323,8 +323,16 @@ if [ "$QUICK_TEST" != true ]; then
     echo "CGI mode test (service-specific execution):"
     echo ""
     
-    # Create a simple SOAP request for CGI testing
-    cat > /tmp/cgi_test.xml << 'EOF'
+    # Check if we started our own server or using existing one
+    if [ ! -z "$SERVER_PID" ]; then
+        # We started our own server, we can test CGI mode by temporarily stopping it
+        echo "Temporarily stopping server for CGI test..."
+        kill $SERVER_PID 2>/dev/null
+        wait $SERVER_PID 2>/dev/null
+        sleep 2
+        
+        # Create a simple SOAP request for CGI testing
+        cat > /tmp/cgi_test.xml << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"
                xmlns:tds="http://www.onvif.org/ver10/device/wsdl">
@@ -333,12 +341,22 @@ if [ "$QUICK_TEST" != true ]; then
   </soap:Body>
 </soap:Envelope>
 EOF
-    
-    echo "Running: echo 'SOAP request' | CONTENT_LENGTH=300 REQUEST_METHOD=POST ../bin/onvif_server device_service"
-    echo "Result:"
-    # Run the server binary from the project root directory to ensure proper config file loading
-    (cd .. && echo '<?xml version="1.0" encoding="UTF-8"?><soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body><tds:GetDeviceInformation/></soap:Body></soap:Envelope>' | \
-    CONTENT_LENGTH=150 REQUEST_METHOD=POST ./bin/onvif_server device_service)
+        
+        echo "Running: echo 'SOAP request' | CONTENT_LENGTH=150 REQUEST_METHOD=POST ../bin/onvif_server device_service"
+        echo "Result:"
+        # Run the server binary from the project root directory to ensure proper config file loading
+        (cd .. && echo '<?xml version="1.0" encoding="UTF-8"?><soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body><tds:GetDeviceInformation/></soap:Body></soap:Envelope>' | \
+        CONTENT_LENGTH=150 REQUEST_METHOD=POST ./bin/onvif_server device_service)
+        
+        # Restart the server
+        echo "Restarting server..."
+        (cd .. && ./bin/onvif_server) > /dev/null 2>&1 &
+        SERVER_PID=$!
+        sleep 2
+    else
+        echo "⚠️ Using existing server instance - skipping CGI test to avoid port conflicts."
+        echo "To test CGI mode, stop the existing server and run this script again."
+    fi
     
     echo ""
 fi

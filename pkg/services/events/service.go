@@ -2,6 +2,7 @@ package events
 
 import (
 	"fmt"
+	"net/http"
 	"path/filepath"
 	
 	"github.com/fawad-mazhar/onvif-go/internal/xml"
@@ -126,4 +127,61 @@ func (s *ServiceContext) createEventElement(event Event) string {
                 </tev:EventTopic>`, event.Topic, event.Producer)
 	
 	return eventElement
+}
+
+// HTTP-compatible methods that write to http.ResponseWriter
+
+// GetServiceCapabilitiesHTTP handles the GetServiceCapabilities ONVIF events service method via HTTP
+func (s *ServiceContext) GetServiceCapabilitiesHTTP(w http.ResponseWriter) error {
+	// Create replacements map for template processing
+	replacements := map[string]string{}
+	
+	// Process template and write response
+	templatePath := filepath.Join("service_files", "events", "GetServiceCapabilities.xml")
+	if !xml.FileExists(templatePath) {
+		// Fallback to generic template if service-specific one doesn't exist
+		templatePath = filepath.Join("generic_files", "Empty.xml")
+	}
+	
+	response, err := xml.ProcessTemplate(templatePath, replacements)
+	if err != nil {
+		return fmt.Errorf("failed to process GetServiceCapabilities template: %v", err)
+	}
+	
+	w.Write([]byte(response))
+	return nil
+}
+
+// GetEventPropertiesHTTP handles the GetEventProperties ONVIF events service method via HTTP
+func (s *ServiceContext) GetEventPropertiesHTTP(w http.ResponseWriter) error {
+	// Create event elements
+	eventElements := make([]string, len(s.Events))
+	for i, event := range s.Events {
+		eventElements[i] = s.createEventElement(event)
+	}
+	
+	eventsXML := ""
+	if len(eventElements) > 0 {
+		eventsXML = eventElements[0] // For simplicity, we're only using the first event
+	}
+	
+	// Create replacements map for template processing
+	replacements := map[string]string{
+		"%EVENTS%": eventsXML,
+	}
+	
+	// Process template and write response
+	templatePath := filepath.Join("service_files", "events", "GetEventProperties.xml")
+	if !xml.FileExists(templatePath) {
+		// Fallback to generic template if service-specific one doesn't exist
+		templatePath = filepath.Join("generic_files", "Empty.xml")
+	}
+	
+	response, err := xml.ProcessTemplate(templatePath, replacements)
+	if err != nil {
+		return fmt.Errorf("failed to process GetEventProperties template: %v", err)
+	}
+	
+	w.Write([]byte(response))
+	return nil
 }

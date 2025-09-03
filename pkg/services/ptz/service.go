@@ -2,6 +2,7 @@ package ptz
 
 import (
 	"fmt"
+	"net/http"
 	"path/filepath"
 	
 	"github.com/fawad-mazhar/onvif-go/internal/xml"
@@ -200,4 +201,61 @@ func (s *ServiceContext) createNodeElement(node PTZNode) string {
 		node.MinZoom, node.MaxZoom)
 	
 	return nodeElement
+}
+
+// HTTP-compatible methods that write to http.ResponseWriter
+
+// GetServiceCapabilitiesHTTP handles the GetServiceCapabilities ONVIF PTZ service method via HTTP
+func (s *ServiceContext) GetServiceCapabilitiesHTTP(w http.ResponseWriter) error {
+	// Create replacements map for template processing
+	replacements := map[string]string{}
+	
+	// Process template and write response
+	templatePath := filepath.Join("service_files", "ptz", "GetServiceCapabilities.xml")
+	if !xml.FileExists(templatePath) {
+		// Fallback to generic template if service-specific one doesn't exist
+		templatePath = filepath.Join("generic_files", "Empty.xml")
+	}
+	
+	response, err := xml.ProcessTemplate(templatePath, replacements)
+	if err != nil {
+		return fmt.Errorf("failed to process GetServiceCapabilities template: %v", err)
+	}
+	
+	w.Write([]byte(response))
+	return nil
+}
+
+// GetNodesHTTP handles the GetNodes ONVIF PTZ service method via HTTP
+func (s *ServiceContext) GetNodesHTTP(w http.ResponseWriter) error {
+	// Create node elements
+	nodeElements := make([]string, len(s.PTZNodes))
+	for i, node := range s.PTZNodes {
+		nodeElements[i] = s.createNodeElement(node)
+	}
+	
+	nodesXML := ""
+	if len(nodeElements) > 0 {
+		nodesXML = nodeElements[0] // For simplicity, we're only using the first node
+	}
+	
+	// Create replacements map for template processing
+	replacements := map[string]string{
+		"%NODES%": nodesXML,
+	}
+	
+	// Process template and write response
+	templatePath := filepath.Join("service_files", "ptz", "GetNodes.xml")
+	if !xml.FileExists(templatePath) {
+		// Fallback to generic template if service-specific one doesn't exist
+		templatePath = filepath.Join("generic_files", "Empty.xml")
+	}
+	
+	response, err := xml.ProcessTemplate(templatePath, replacements)
+	if err != nil {
+		return fmt.Errorf("failed to process GetNodes template: %v", err)
+	}
+	
+	w.Write([]byte(response))
+	return nil
 }
