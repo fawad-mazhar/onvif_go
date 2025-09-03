@@ -11,7 +11,7 @@
 SERVER_URL="http://localhost:8080"
 WSD_URL="http://localhost:3703"
 SOAP_DIR="soap_requests"
-CONFIG_FILE="../internal/config/test.conf"
+CONFIG_FILE="../internal/config/onvif_simple_server.conf"
 SERVER_BINARY="../bin/onvif_server"
 SERVER_PID=""
 QUICK_TEST=false
@@ -341,12 +341,12 @@ if [ "$QUICK_TEST" != true ]; then
     # Test Configuration
     echo "📋 Testing Configuration"
     echo "======================="
-    if [ -f "../internal/config/test.conf" ]; then
-        echo "✅ Configuration file: internal/config/test.conf"
+    if [ -f "$CONFIG_FILE" ]; then
+        echo "✅ Configuration file: $CONFIG_FILE"
         echo "Key settings:"
-        grep -E "^(port|wsd_port|manufacturer|model|user)" ../internal/config/test.conf | head -5
+        grep -E "^(port|wsd_port|manufacturer|model|user)" "$CONFIG_FILE" | head -5
     else
-        echo "⚠️ No test configuration found"
+        echo "⚠️ Configuration file not found: $CONFIG_FILE"
     fi
     
     echo ""
