@@ -15,10 +15,10 @@ This document provides a comprehensive comparison between the original C impleme
 | **PTZ Service** | 13 functions | 2 functions | **15%** | ⚠️ |
 | **Events Service** | 8 functions | 2 functions | **25%** | ⚠️ |
 | **DeviceIO Service** | 4 functions | 2 functions | **50%** | ⚠️ |
-| **WS-Discovery** | 4 operations | 1 operation | **25%** | ⚠️ |
+| **WS-Discovery** | 4 operations | 4 operations | **100%** | ✅ |
 | **XML Templates** | 144 files | 28 files | **19%** | ❌ |
 
-**Total Coverage: ~25%**
+**Total Coverage: ~30%**
 
 ## 🔧 Core Infrastructure Comparison
 
@@ -174,14 +174,14 @@ This document provides a comprehensive comparison between the original C impleme
 | Operation | Original C | Go Implementation | Status | Notes |
 |-----------|------------|-------------------|--------|-------|
 | **Discovery Protocol** |
-| Probe/ProbeMatch | ✅ (UDP) | ❌ | ⚠️ | Non-compliant |
-| Hello | ✅ | ❌ | ❌ | Missing |
-| Bye | ✅ | ❌ | ❌ | Missing |
-| Resolve/ResolveMatch | ✅ | ❌ | ❌ | Missing |
+| Probe/ProbeMatch | ✅ (UDP) | ✅ (UDP) | ✅ | ONVIF compliant |
+| Hello | ✅ | ✅ | ✅ | Multicast announcements |
+| Bye | ✅ | ✅ | ✅ | Graceful shutdown |
+| Resolve/ResolveMatch | ✅ | ✅ | ✅ | Direct resolution |
 | **Transport** |
-| UDP Multicast | ✅ | ❌ | ❌ | Standard ONVIF |
+| UDP Multicast | ✅ | ✅ | ✅ | Standard ONVIF 239.255.255.250:3702 |
 
-**WS-Discovery Coverage: 1/4 operations = 25%** (with transport differences)
+**WS-Discovery Coverage: 4/4 operations = 100%** ✅
 
 ## 📄 XML Templates Analysis
 

@@ -41,7 +41,6 @@ help:
 	@echo "  onvif-server    - Build main ONVIF server"
 	@echo "  test            - Run all tests"
 	@echo "  test-coverage   - Run tests with coverage report"
-	@echo "  help            - Display this help message"
 
 # Phony targets
 .PHONY: all build onvif-server install test test-coverage clean help
