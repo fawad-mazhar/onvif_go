@@ -174,13 +174,12 @@ This document provides a comprehensive comparison between the original C impleme
 | Operation | Original C | Go Implementation | Status | Notes |
 |-----------|------------|-------------------|--------|-------|
 | **Discovery Protocol** |
-| Probe/ProbeMatch | ✅ (UDP) | ✅ (HTTP) | ⚠️ | Different transport |
+| Probe/ProbeMatch | ✅ (UDP) | ❌ | ⚠️ | Non-compliant |
 | Hello | ✅ | ❌ | ❌ | Missing |
 | Bye | ✅ | ❌ | ❌ | Missing |
 | Resolve/ResolveMatch | ✅ | ❌ | ❌ | Missing |
 | **Transport** |
 | UDP Multicast | ✅ | ❌ | ❌ | Standard ONVIF |
-| HTTP Discovery | ❌ | ✅ | ⚠️ | Custom implementation |
 
 **WS-Discovery Coverage: 1/4 operations = 25%** (with transport differences)
 
