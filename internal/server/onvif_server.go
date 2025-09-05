@@ -83,7 +83,7 @@ func StartHTTPServer(cfg *config.ServiceContext) error {
 }
 
 // processSOAPRequest routes SOAP requests to the appropriate service handler
-func processSOAPRequest(w http.ResponseWriter, soapAction, serviceName string, cfg *config.ServiceContext) {
+func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapAction, serviceName string, cfg *config.ServiceContext) {
 	switch serviceName {
 	case "device_service":
 		switch {
@@ -170,18 +170,27 @@ func processSOAPRequest(w http.ResponseWriter, soapAction, serviceName string, c
 			handleUnsupportedSOAPAction(w, soapAction)
 		}
 	case "events_service":
+		eventsService := events.NewServiceContext()
+		eventsService.Port = cfg.Port
+		eventsService.Events = convertEvents(cfg.Events)
+		
 		switch {
 		case strings.Contains(soapAction, "GetServiceCapabilities"):
-			eventsService := &events.ServiceContext{
-				Port: cfg.Port,
-			}
 			eventsService.GetServiceCapabilitiesHTTP(w)
+		case strings.Contains(soapAction, "CreatePullPointSubscription"):
+			eventsService.CreatePullPointSubscriptionHTTP(w, r)
+		case strings.Contains(soapAction, "PullMessages"):
+			eventsService.PullMessagesHTTP(w, r)
+		case strings.Contains(soapAction, "Subscribe"):
+			eventsService.SubscribeHTTP(w, r)
+		case strings.Contains(soapAction, "Renew"):
+			eventsService.RenewHTTP(w, r)
+		case strings.Contains(soapAction, "Unsubscribe"):
+			eventsService.UnsubscribeHTTP(w, r)
 		case strings.Contains(soapAction, "GetEventProperties"):
-			eventsService := &events.ServiceContext{
-				Port:   cfg.Port,
-				Events: convertEvents(cfg.Events),
-			}
 			eventsService.GetEventPropertiesHTTP(w)
+		case strings.Contains(soapAction, "SetSynchronizationPoint"):
+			eventsService.SetSynchronizationPointHTTP(w, r)
 		default:
 			handleUnsupportedSOAPAction(w, soapAction)
 		}
@@ -326,7 +335,7 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 		}
 
 		// Route the request to the appropriate service handler
-		processSOAPRequest(w, soapAction, serviceName, cfg)
+		processSOAPRequest(w, r, soapAction, serviceName, cfg)
 	}
 }
 
