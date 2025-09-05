@@ -173,7 +173,8 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapAction, serv
 		eventsService := events.NewServiceContext()
 		eventsService.Port = cfg.Port
 		eventsService.Events = convertEvents(cfg.Events)
-		
+		eventsService.StartEventGenerator() // Start generating test events
+
 		switch {
 		case strings.Contains(soapAction, "GetServiceCapabilities"):
 			eventsService.GetServiceCapabilitiesHTTP(w)

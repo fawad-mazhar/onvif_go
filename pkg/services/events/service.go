@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	MaxSubscriptions = 16
-	DefaultPullPointTimeout = 60 * time.Second
+	MaxSubscriptions           = 16
+	DefaultPullPointTimeout    = 60 * time.Second
 	DefaultSubscriptionTimeout = 600 * time.Second
 )
 
@@ -99,11 +99,11 @@ func (s *ServiceContext) getSubscriptionByID(id int) (*Subscription, bool) {
 func (s *ServiceContext) createSubscription(subType SubscriptionType, address, topicExpression string, duration time.Duration) *Subscription {
 	s.subMutex.Lock()
 	defer s.subMutex.Unlock()
-	
+
 	if len(s.subscriptions) >= MaxSubscriptions {
 		return nil
 	}
-	
+
 	sub := &Subscription{
 		ID:              s.nextSubID,
 		Type:            subType,
@@ -113,13 +113,13 @@ func (s *ServiceContext) createSubscription(subType SubscriptionType, address, t
 		ExpireTime:      time.Now().Add(duration),
 		PendingMessages: make([]EventMessage, 0),
 	}
-	
+
 	s.subscriptions[s.nextSubID] = sub
 	s.nextSubID++
 	if s.nextSubID > 65535 {
 		s.nextSubID = 1
 	}
-	
+
 	logger.Debug("Created subscription ID=%d, type=%d, expires=%s", sub.ID, sub.Type, sub.ExpireTime.Format(time.RFC3339))
 	return sub
 }
@@ -128,7 +128,7 @@ func (s *ServiceContext) createSubscription(subType SubscriptionType, address, t
 func (s *ServiceContext) removeSubscription(id int) bool {
 	s.subMutex.Lock()
 	defer s.subMutex.Unlock()
-	
+
 	if _, exists := s.subscriptions[id]; exists {
 		delete(s.subscriptions, id)
 		logger.Debug("Removed subscription ID=%d", id)
@@ -141,7 +141,7 @@ func (s *ServiceContext) removeSubscription(id int) bool {
 func (s *ServiceContext) cleanExpiredSubscriptions() {
 	s.subMutex.Lock()
 	defer s.subMutex.Unlock()
-	
+
 	now := time.Now()
 	for id, sub := range s.subscriptions {
 		if now.After(sub.ExpireTime) {
@@ -160,15 +160,15 @@ func isTopicMatching(expression, topic string) bool {
 	return expression == topic
 }
 
-// addEventMessage adds an event message to matching subscriptions
-func (s *ServiceContext) addEventMessage(topic string, state bool, timestamp time.Time) {
+// AddEventMessage adds an event message to matching subscriptions (public for external event generation)
+func (s *ServiceContext) AddEventMessage(topic string, state bool, timestamp time.Time) {
 	s.subMutex.RLock()
 	defer s.subMutex.RUnlock()
-	
+
 	for _, sub := range s.subscriptions {
 		if isTopicMatching(sub.TopicExpression, topic) {
 			sub.messageMutex.Lock()
-			
+
 			dataName := "State"
 			dataValue := "false"
 			if state {
@@ -182,7 +182,7 @@ func (s *ServiceContext) addEventMessage(topic string, state bool, timestamp tim
 					dataValue = "inactive"
 				}
 			}
-			
+
 			msg := EventMessage{
 				Topic:       topic,
 				Timestamp:   timestamp,
@@ -192,11 +192,28 @@ func (s *ServiceContext) addEventMessage(topic string, state bool, timestamp tim
 				DataName:    dataName,
 				DataValue:   dataValue,
 			}
-			
+
 			sub.PendingMessages = append(sub.PendingMessages, msg)
 			sub.messageMutex.Unlock()
 		}
 	}
+}
+
+// StartEventGenerator starts a background goroutine that generates test events
+func (s *ServiceContext) StartEventGenerator() {
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		
+		eventState := false
+		for range ticker.C {
+			// Generate sample events for testing
+			s.AddEventMessage("tns1:VideoSource/MotionAlarm", eventState, time.Now())
+			s.AddEventMessage("tns1:Device/Trigger/Relay", eventState, time.Now())
+			eventState = !eventState
+			logger.Debug("Generated test events with state: %v", eventState)
+		}
+	}()
 }
 
 // HTTP-compatible methods that write to http.ResponseWriter
@@ -214,99 +231,99 @@ func (s *ServiceContext) GetServiceCapabilitiesHTTP(w http.ResponseWriter) error
 // CreatePullPointSubscriptionHTTP handles the CreatePullPointSubscription ONVIF events service method via HTTP
 func (s *ServiceContext) CreatePullPointSubscriptionHTTP(w http.ResponseWriter, r *http.Request) error {
 	logger.Info("CreatePullPointSubscription received")
-	
+
 	// Clean expired subscriptions
 	s.cleanExpiredSubscriptions()
-	
+
 	// Parse timeout duration (default 1 minute for pull point)
 	duration := DefaultPullPointTimeout
-	
+
 	// Create pull point subscription
 	address := fmt.Sprintf("http://localhost:%d/onvif/events_service", s.Port)
 	sub := s.createSubscription(PullPointSubscription, address, "", duration)
 	if sub == nil {
 		return fmt.Errorf("failed to create subscription: maximum subscriptions reached")
 	}
-	
+
 	// Add subscription ID to address
 	subscriptionAddress := fmt.Sprintf("%s?sub=%d", address, sub.ID)
-	
+
 	now := time.Now()
 	replacements := map[string]string{
 		"%ADDRESS%":          subscriptionAddress,
 		"%CURRENT_TIME%":     now.Format(time.RFC3339),
 		"%TERMINATION_TIME%": sub.ExpireTime.Format(time.RFC3339),
 	}
-	
+
 	return utils.ProcessServiceTemplate(w, "events", "CreatePullPointSubscription", replacements)
 }
 
 // PullMessagesHTTP handles the PullMessages ONVIF events service method via HTTP
 func (s *ServiceContext) PullMessagesHTTP(w http.ResponseWriter, r *http.Request) error {
 	logger.Info("PullMessages request received")
-	
+
 	// Parse subscription ID from query parameters
 	subIDStr := r.URL.Query().Get("sub")
 	if subIDStr == "" {
 		return fmt.Errorf("no subscription ID provided")
 	}
-	
+
 	subID, err := strconv.Atoi(subIDStr)
 	if err != nil || subID <= 0 || subID > 65535 {
 		return fmt.Errorf("invalid subscription ID")
 	}
-	
+
 	sub, exists := s.getSubscriptionByID(subID)
 	if !exists {
 		return fmt.Errorf("subscription not found")
 	}
-	
+
 	if sub.Type != PullPointSubscription {
 		return fmt.Errorf("not a pull point subscription")
 	}
-	
+
 	// Wait for messages or timeout (simplified - in real implementation would parse timeout from request)
 	timeout := 30 * time.Second
 	deadline := time.Now().Add(timeout)
-	
+
 	for time.Now().Before(deadline) {
 		sub.messageMutex.RLock()
 		hasMessages := len(sub.PendingMessages) > 0
 		sub.messageMutex.RUnlock()
-		
+
 		if hasMessages {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	
+
 	now := time.Now()
 	replacements := map[string]string{
 		"%CURRENT_TIME%":     now.Format(time.RFC3339),
 		"%TERMINATION_TIME%": sub.ExpireTime.Format(time.RFC3339),
 	}
-	
+
 	return utils.ProcessServiceTemplate(w, "events", "PullMessages_1", replacements)
 }
 
 // SubscribeHTTP handles the Subscribe ONVIF events service method via HTTP
 func (s *ServiceContext) SubscribeHTTP(w http.ResponseWriter, r *http.Request) error {
 	logger.Info("Subscribe request received")
-	
+
 	// Clean expired subscriptions
 	s.cleanExpiredSubscriptions()
-	
+
 	// In a real implementation, we would parse the consumer reference from the SOAP request
 	consumerReference := "http://consumer/notify"
-	
+
 	// Create base subscription
 	sub := s.createSubscription(BaseSubscription, consumerReference, "", DefaultSubscriptionTimeout)
 	if sub == nil {
 		return fmt.Errorf("failed to create subscription: maximum subscriptions reached")
 	}
-	
+
 	subscriptionAddress := fmt.Sprintf("http://localhost:%d/onvif/events_service?sub=%d", s.Port, sub.ID)
-	
+
 	now := time.Now()
 	replacements := map[string]string{
 		"%MSG_UUID%":         fmt.Sprintf("uuid-%d", time.Now().UnixNano()),
@@ -315,34 +332,34 @@ func (s *ServiceContext) SubscribeHTTP(w http.ResponseWriter, r *http.Request) e
 		"%CURRENT_TIME%":     now.Format(time.RFC3339),
 		"%TERMINATION_TIME%": sub.ExpireTime.Format(time.RFC3339),
 	}
-	
+
 	return utils.ProcessServiceTemplate(w, "events", "Subscribe", replacements)
 }
 
 // RenewHTTP handles the Renew ONVIF events service method via HTTP
 func (s *ServiceContext) RenewHTTP(w http.ResponseWriter, r *http.Request) error {
 	logger.Info("Renew request received")
-	
+
 	subIDStr := r.URL.Query().Get("sub")
 	if subIDStr == "" {
 		return fmt.Errorf("no subscription ID provided")
 	}
-	
+
 	subID, err := strconv.Atoi(subIDStr)
 	if err != nil || subID <= 0 || subID > 65535 {
 		return fmt.Errorf("invalid subscription ID")
 	}
-	
+
 	sub, exists := s.getSubscriptionByID(subID)
 	if !exists {
 		return fmt.Errorf("subscription not found")
 	}
-	
+
 	// Extend subscription (default extension)
 	s.subMutex.Lock()
 	sub.ExpireTime = time.Now().Add(DefaultSubscriptionTimeout)
 	s.subMutex.Unlock()
-	
+
 	now := time.Now()
 	replacements := map[string]string{
 		"%MSG_UUID%":         fmt.Sprintf("uuid-%d", time.Now().UnixNano()),
@@ -350,28 +367,28 @@ func (s *ServiceContext) RenewHTTP(w http.ResponseWriter, r *http.Request) error
 		"%CURRENT_TIME%":     now.Format(time.RFC3339),
 		"%TERMINATION_TIME%": sub.ExpireTime.Format(time.RFC3339),
 	}
-	
+
 	return utils.ProcessServiceTemplate(w, "events", "Renew", replacements)
 }
 
 // UnsubscribeHTTP handles the Unsubscribe ONVIF events service method via HTTP
 func (s *ServiceContext) UnsubscribeHTTP(w http.ResponseWriter, r *http.Request) error {
 	logger.Info("Unsubscribe request received")
-	
+
 	subIDStr := r.URL.Query().Get("sub")
 	if subIDStr == "" {
 		return fmt.Errorf("no subscription ID provided")
 	}
-	
+
 	subID, err := strconv.Atoi(subIDStr)
 	if err != nil || subID <= 0 || subID > 65535 {
 		return fmt.Errorf("invalid subscription ID")
 	}
-	
+
 	if !s.removeSubscription(subID) {
 		return fmt.Errorf("subscription not found")
 	}
-	
+
 	replacements := map[string]string{}
 	return utils.ProcessServiceTemplate(w, "events", "Unsubscribe", replacements)
 }
@@ -391,28 +408,28 @@ func (s *ServiceContext) GetEventPropertiesHTTP(w http.ResponseWriter) error {
 // SetSynchronizationPointHTTP handles the SetSynchronizationPoint ONVIF events service method via HTTP
 func (s *ServiceContext) SetSynchronizationPointHTTP(w http.ResponseWriter, r *http.Request) error {
 	logger.Info("SetSynchronizationPoint request received")
-	
+
 	subIDStr := r.URL.Query().Get("sub")
 	if subIDStr == "" {
 		return fmt.Errorf("no subscription ID provided")
 	}
-	
+
 	subID, err := strconv.Atoi(subIDStr)
 	if err != nil || subID <= 0 || subID > 65535 {
 		return fmt.Errorf("invalid subscription ID")
 	}
-	
+
 	sub, exists := s.getSubscriptionByID(subID)
 	if !exists {
 		return fmt.Errorf("subscription not found")
 	}
-	
+
 	// Force initialization messages for all matching events
 	now := time.Now()
 	for _, event := range s.Events {
 		if isTopicMatching(sub.TopicExpression, event.Topic) {
 			sub.messageMutex.Lock()
-			
+
 			dataName := "State"
 			dataValue := "false"
 			if event.State {
@@ -426,7 +443,7 @@ func (s *ServiceContext) SetSynchronizationPointHTTP(w http.ResponseWriter, r *h
 					dataValue = "inactive"
 				}
 			}
-			
+
 			msg := EventMessage{
 				Topic:       event.Topic,
 				Timestamp:   now,
@@ -436,12 +453,12 @@ func (s *ServiceContext) SetSynchronizationPointHTTP(w http.ResponseWriter, r *h
 				DataName:    dataName,
 				DataValue:   dataValue,
 			}
-			
+
 			sub.PendingMessages = append(sub.PendingMessages, msg)
 			sub.messageMutex.Unlock()
 		}
 	}
-	
+
 	replacements := map[string]string{}
 	return utils.ProcessServiceTemplate(w, "events", "SetSynchronizationPoint", replacements)
 }
