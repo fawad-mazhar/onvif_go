@@ -11,12 +11,12 @@ import (
 
 const (
 	unknownType = "UNKNOWN"
-	
+
 	// Configuration parsing constants
-	configKeyValueParts = 2  // Expected parts when splitting key=value
-	minProfileParts = 3      // Minimum parts for profile configuration
-	minRelayParts = 2        // Minimum parts for relay configuration  
-	minEventParts = 3        // Minimum parts for event configuration
+	configKeyValueParts = 2 // Expected parts when splitting key=value
+	minProfileParts     = 3 // Minimum parts for profile configuration
+	minRelayParts       = 2 // Minimum parts for relay configuration
+	minEventParts       = 3 // Minimum parts for event configuration
 )
 
 // ServiceContext represents the main service context

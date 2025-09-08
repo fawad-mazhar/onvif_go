@@ -13,10 +13,10 @@ import (
 )
 
 const (
-	MaxSubscriptions           = 16
+	MaxSubscriptions = 16
 	// DefaultPullPointTimeout is the default timeout for pull point subscriptions
-	DefaultPullPointTimeout    = 60 * time.Second
-	// DefaultSubscriptionTimeout is the default timeout for base subscriptions  
+	DefaultPullPointTimeout = 60 * time.Second
+	// DefaultSubscriptionTimeout is the default timeout for base subscriptions
 	DefaultSubscriptionTimeout = 600 * time.Second
 
 	// Data attribute names
@@ -77,7 +77,7 @@ type SubscriptionType int
 const (
 	// PullPointSubscription represents a pull-point subscription
 	PullPointSubscription SubscriptionType = iota
-	// BaseSubscription represents a base subscription  
+	// BaseSubscription represents a base subscription
 	BaseSubscription
 )
 

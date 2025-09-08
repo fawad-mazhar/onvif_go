@@ -78,4 +78,3 @@ func Debugf(format string, args ...interface{}) {
 		logger.Debugf(format)
 	}
 }
-

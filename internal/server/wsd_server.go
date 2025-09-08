@@ -25,7 +25,7 @@ const (
 	// MulticastAddress is the ONVIF WS-Discovery multicast address
 	MulticastAddress = "239.255.255.250"
 	// MulticastPort is the ONVIF WS-Discovery multicast port
-	MulticastPort    = 3702
+	MulticastPort = 3702
 
 	// DeviceType is the ONVIF device type
 	DeviceType = "tdn:NetworkVideoTransmitter"
