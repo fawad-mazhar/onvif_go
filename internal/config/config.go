@@ -191,6 +191,14 @@ const (
 	EventsBoth
 )
 
+// Configuration parsing constants
+const (
+	// MinScopeKeyParts defines minimum parts required for scope key parsing
+	MinScopeKeyParts = 2
+	// MinComplexKeyParts defines minimum parts required for complex key parsing (profile, event, relay)
+	MinComplexKeyParts = 3
+)
+
 // LoadConfig loads configuration from a file
 func LoadConfig(filename string) (*ServiceContext, error) {
 	file, err := os.Open(filename)
@@ -374,7 +382,7 @@ func parsePrefixedConfig(context *ServiceContext, key, value string) error {
 func parseProfileConfig(context *ServiceContext, key, value string) error {
 	// Extract profile index and property
 	parts := strings.Split(key, ".")
-	if len(parts) < 3 {
+	if len(parts) < MinComplexKeyParts {
 		return fmt.Errorf("invalid profile key format: %s", key)
 	}
 
@@ -425,7 +433,7 @@ func parseProfileConfig(context *ServiceContext, key, value string) error {
 func parseScopeConfig(context *ServiceContext, key, value string) error {
 	// Extract scope index
 	parts := strings.Split(key, ".")
-	if len(parts) < 2 {
+	if len(parts) < MinScopeKeyParts {
 		return fmt.Errorf("invalid scope key format: %s", key)
 	}
 
@@ -447,7 +455,7 @@ func parseScopeConfig(context *ServiceContext, key, value string) error {
 func parseRelayOutputConfig(context *ServiceContext, key, value string) error {
 	// Extract relay output index and property
 	parts := strings.Split(key, ".")
-	if len(parts) < 3 {
+	if len(parts) < MinComplexKeyParts {
 		return fmt.Errorf("invalid relay output key format: %s", key)
 	}
 
@@ -563,7 +571,7 @@ func parsePTZCommand(context *ServiceContext, property, value string) {
 func parseEventConfig(context *ServiceContext, key, value string) error {
 	// Extract event index and property
 	parts := strings.Split(key, ".")
-	if len(parts) < 3 {
+	if len(parts) < MinComplexKeyParts {
 		return fmt.Errorf("invalid event key format: %s", key)
 	}
 

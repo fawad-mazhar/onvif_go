@@ -42,6 +42,23 @@ const (
 	ActionResolve      = "http://schemas.xmlsoap.org/ws/2005/04/discovery/Resolve"
 	// ActionResolveMatch is the WS-Discovery ResolveMatches action
 	ActionResolveMatch = "http://schemas.xmlsoap.org/ws/2005/04/discovery/ResolveMatches"
+
+	// Network buffer and UUID generation constants
+	// MessageBufferSize defines the buffer size for UDP messages
+	MessageBufferSize = 4096
+	// UUIDByteLength defines the length of UUID byte array
+	UUIDByteLength = 16
+	// UUID bit masks and shifts for timestamp-based generation
+	UUIDMask16Bits    = 0xFFFF
+	UUIDMask48Bits    = 0xFFFFFFFFFFFF
+	UUIDShift16Bits   = 16
+	UUIDShift32Bits   = 32
+	UUIDShift48Bits   = 48
+	// UUID version and variant bits
+	UUIDVersionMask   = 0x0F
+	UUIDVersion4      = 0x40
+	UUIDVariantMask   = 0x3F
+	UUIDVariant10     = 0x80
 )
 
 type WSDServer struct {
@@ -317,7 +334,7 @@ func (s *WSDServer) setupSignalHandler() {
 func (s *WSDServer) listenForMessages() {
 	defer s.wg.Done()
 
-	buffer := make([]byte, 4096)
+	buffer := make([]byte, MessageBufferSize)
 
 	for {
 		select {
@@ -442,21 +459,21 @@ func getLocalIP() (string, error) {
 
 // generateUUID generates a simple UUID
 func generateUUID() string {
-	b := make([]byte, 16)
+	b := make([]byte, UUIDByteLength)
 	_, err := rand.Read(b)
 	if err != nil {
 		// Fallback to timestamp-based UUID
 		return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
 			time.Now().Unix(),
-			time.Now().UnixNano()&0xFFFF,
-			time.Now().UnixNano()>>16&0xFFFF,
-			time.Now().UnixNano()>>32&0xFFFF,
-			time.Now().UnixNano()>>48&0xFFFFFFFFFFFF)
+			time.Now().UnixNano()&UUIDMask16Bits,
+			time.Now().UnixNano()>>UUIDShift16Bits&UUIDMask16Bits,
+			time.Now().UnixNano()>>UUIDShift32Bits&UUIDMask16Bits,
+			time.Now().UnixNano()>>UUIDShift48Bits&UUIDMask48Bits)
 	}
 
 	// Set version (4) and variant bits
-	b[6] = (b[6] & 0x0F) | 0x40 // Version 4
-	b[8] = (b[8] & 0x3F) | 0x80 // Variant 10
+	b[6] = (b[6] & UUIDVersionMask) | UUIDVersion4 // Version 4
+	b[8] = (b[8] & UUIDVariantMask) | UUIDVariant10 // Variant 10
 
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
 		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])

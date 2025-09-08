@@ -20,6 +20,15 @@ import (
 	"github.com/go-chi/cors"
 )
 
+const (
+	// RequestTimeoutSeconds defines the HTTP request timeout in seconds
+	RequestTimeoutSeconds = 60
+	// CORSMaxAgeSeconds defines the CORS preflight cache duration in seconds
+	CORSMaxAgeSeconds = 300
+	// NonceMaxAgeSeconds defines the maximum age for nonce validation in seconds (5 minutes)
+	NonceMaxAgeSeconds = 300
+)
+
 // StartHTTPServer starts the integrated HTTP ONVIF server with Chi router and CORS
 func StartHTTPServer(cfg *config.ServiceContext) error {
 	// Initialize logging
@@ -33,7 +42,7 @@ func StartHTTPServer(cfg *config.ServiceContext) error {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(middleware.Timeout(RequestTimeoutSeconds * time.Second))
 
 	// Configure CORS
 	r.Use(cors.Handler(cors.Options{
@@ -42,7 +51,7 @@ func StartHTTPServer(cfg *config.ServiceContext) error {
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "SOAPAction"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
-		MaxAge:           300, // Maximum value not ignored by any major browsers
+		MaxAge:           CORSMaxAgeSeconds, // Maximum value not ignored by any major browsers
 	}))
 
 	// Create ONVIF service handlers
@@ -348,7 +357,7 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 			}
 
 			// Validate timestamp to prevent replay attacks
-			if !auth.ValidateNonceTimestamp(usernameToken.Created, 300) { // 5 minutes max age
+			if !auth.ValidateNonceTimestamp(usernameToken.Created, NonceMaxAgeSeconds) { // 5 minutes max age
 				logger.Warnf("Nonce timestamp validation failed")
 				sendSOAPError(w, "Nonce timestamp validation failed")
 				return
