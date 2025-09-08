@@ -1,3 +1,4 @@
+// Package device provides ONVIF Device service implementation.
 package device
 
 import (
@@ -16,7 +17,7 @@ type ServiceContext struct {
 	Model        string
 	FirmwareVer  string
 	SerialNum    string
-	HardwareId   string
+	HardwareID   string
 	Profiles     []Profile
 	Scopes       []string
 	PTZEnable    bool
@@ -62,7 +63,7 @@ func (s *ServiceContext) GetDeviceInformationHTTP(w http.ResponseWriter) error {
 		"%MODEL%":            s.Model,
 		"%FIRMWARE_VERSION%": s.FirmwareVer,
 		"%SERIAL_NUMBER%":    s.SerialNum,
-		"%HARDWARE_ID%":      s.HardwareId,
+		"%HARDWARE_ID%":      s.HardwareID,
 	}
 
 	// Process template and write response
@@ -160,8 +161,8 @@ func (s *ServiceContext) GetUsersHTTP(w http.ResponseWriter) error {
 	return utils.ProcessServiceTemplate(w, "device", "GetUsers", nil)
 }
 
-// GetWsdlUrlHTTP handles the GetWsdlUrl ONVIF device service method via HTTP
-func (s *ServiceContext) GetWsdlUrlHTTP(w http.ResponseWriter) error {
+// GetWsdlURLHTTP handles the GetWsdlUrl ONVIF device service method via HTTP
+func (s *ServiceContext) GetWsdlURLHTTP(w http.ResponseWriter) error {
 	// Create replacements map for template processing
 	replacements := map[string]string{
 		"%WSDL_URL%": "http://www.onvif.org/ver10/device/wsdl/devicemgmt.wsdl",

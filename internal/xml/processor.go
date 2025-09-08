@@ -1,3 +1,4 @@
+// Package xml provides XML template processing utilities for ONVIF services.
 package xml
 
 import (
@@ -13,7 +14,12 @@ func ProcessTemplate(filename string, replacements map[string]string) (string, e
 	if err != nil {
 		return "", fmt.Errorf("failed to open template file: %v", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			// Ignore close error - template file was successfully read
+			_ = closeErr
+		}
+	}()
 
 	var result strings.Builder
 	scanner := bufio.NewScanner(file)

@@ -1,3 +1,4 @@
+// Package ptz provides ONVIF PTZ (Pan-Tilt-Zoom) service implementation.
 package ptz
 
 import (

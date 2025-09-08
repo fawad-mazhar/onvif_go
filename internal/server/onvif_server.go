@@ -59,27 +59,41 @@ func StartHTTPServer(cfg *config.ServiceContext) error {
 	})
 
 	// Add health check endpoint
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"status":"healthy","timestamp":"%s","service":"onvif-server"}`, time.Now().Format(time.RFC3339))
+		if _, err := fmt.Fprintf(w, `{"status":"healthy","timestamp":"%s","service":"onvif-server"}`, time.Now().Format(time.RFC3339)); err != nil {
+			// Ignore write error for health check endpoint
+			_ = err
+		}
 	})
 
 	// Add info endpoint
-	r.Get("/info", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/info", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"manufacturer":"%s","model":"%s","firmware":"%s","serial":"%s"}`,
-			cfg.Manufacturer, cfg.Model, cfg.FirmwareVer, cfg.SerialNum)
+		if _, err := fmt.Fprintf(w, `{"manufacturer":"%s","model":"%s","firmware":"%s","serial":"%s"}`,
+			cfg.Manufacturer, cfg.Model, cfg.FirmwareVer, cfg.SerialNum); err != nil {
+			// Ignore write error for info endpoint
+			_ = err
+		}
 	})
 
 	// Start the HTTP server
 	addr := fmt.Sprintf(":%d", cfg.Port)
-	logger.Info("Starting integrated HTTP ONVIF server on port %d", cfg.Port)
-	logger.Info("ONVIF server listening on address: %s", addr)
-	logger.Info("Health check available at: http://localhost:%d/health", cfg.Port)
-	logger.Info("Device info available at: http://localhost:%d/info", cfg.Port)
+	logger.Infof("Starting integrated HTTP ONVIF server on port %d", cfg.Port)
+	logger.Infof("ONVIF server listening on address: %s", addr)
+	logger.Infof("Health check available at: http://localhost:%d/health", cfg.Port)
+	logger.Infof("Device info available at: http://localhost:%d/info", cfg.Port)
 	return http.ListenAndServe(addr, r)
+}
+
+// handleServiceError handles errors from service calls
+func handleServiceError(w http.ResponseWriter, err error, actionName string) {
+	if err != nil {
+		logger.Errorf("Error handling %s: %v", actionName, err)
+		sendSOAPError(w, "Internal server error")
+	}
 }
 
 // processSOAPRequest routes SOAP requests to the appropriate service handler
@@ -91,7 +105,7 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapAction, serv
 			deviceService := &device.ServiceContext{
 				Port: cfg.Port,
 			}
-			deviceService.GetServicesHTTP(w)
+			handleServiceError(w, deviceService.GetServicesHTTP(w), "GetServices")
 		case strings.Contains(soapAction, "GetDeviceInformation"):
 			deviceService := &device.ServiceContext{
 				Port:         cfg.Port,
@@ -99,41 +113,41 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapAction, serv
 				Model:        cfg.Model,
 				FirmwareVer:  cfg.FirmwareVer,
 				SerialNum:    cfg.SerialNum,
-				HardwareId:   cfg.HardwareId,
+				HardwareID:   cfg.HardwareID,
 				Scopes:       cfg.Scopes,
 				PTZEnable:    cfg.PTZNode.Enable == 1,
 				Media2Enable: cfg.AdvEnableMedia2 == 1,
 			}
-			deviceService.GetDeviceInformationHTTP(w)
+			handleServiceError(w, deviceService.GetDeviceInformationHTTP(w), "GetDeviceInformation")
 		case strings.Contains(soapAction, "GetCapabilities"):
 			deviceService := &device.ServiceContext{
 				Port: cfg.Port,
 			}
-			deviceService.GetCapabilitiesHTTP(w)
+			handleServiceError(w, deviceService.GetCapabilitiesHTTP(w), "GetCapabilities")
 		case strings.Contains(soapAction, "GetScopes"):
 			deviceService := &device.ServiceContext{
 				Port:   cfg.Port,
 				Scopes: cfg.Scopes,
 			}
-			deviceService.GetScopesHTTP(w)
+			handleServiceError(w, deviceService.GetScopesHTTP(w), "GetScopes")
 		case strings.Contains(soapAction, "SystemReboot"):
 			deviceService := &device.ServiceContext{}
-			deviceService.SystemRebootHTTP(w)
+			handleServiceError(w, deviceService.SystemRebootHTTP(w), "SystemReboot")
 		case strings.Contains(soapAction, "GetSystemDateAndTime"):
 			deviceService := &device.ServiceContext{}
-			deviceService.GetSystemDateAndTimeHTTP(w)
+			handleServiceError(w, deviceService.GetSystemDateAndTimeHTTP(w), "GetSystemDateAndTime")
 		case strings.Contains(soapAction, "GetUsers"):
 			deviceService := &device.ServiceContext{}
-			deviceService.GetUsersHTTP(w)
+			handleServiceError(w, deviceService.GetUsersHTTP(w), "GetUsers")
 		case strings.Contains(soapAction, "GetWsdlUrl"):
 			deviceService := &device.ServiceContext{}
-			deviceService.GetWsdlUrlHTTP(w)
+			handleServiceError(w, deviceService.GetWsdlURLHTTP(w), "GetWsdlURL")
 		case strings.Contains(soapAction, "GetNetworkInterfaces"):
 			deviceService := &device.ServiceContext{}
-			deviceService.GetNetworkInterfacesHTTP(w)
+			handleServiceError(w, deviceService.GetNetworkInterfacesHTTP(w), "GetNetworkInterfaces")
 		case strings.Contains(soapAction, "GetDiscoveryMode"):
 			deviceService := &device.ServiceContext{}
-			deviceService.GetDiscoveryModeHTTP(w)
+			handleServiceError(w, deviceService.GetDiscoveryModeHTTP(w), "GetDiscoveryMode")
 		default:
 			handleUnsupportedSOAPAction(w, soapAction)
 		}
@@ -143,13 +157,13 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapAction, serv
 			mediaService := &media.ServiceContext{
 				Port: cfg.Port,
 			}
-			mediaService.GetServiceCapabilitiesHTTP(w)
+			handleServiceError(w, mediaService.GetServiceCapabilitiesHTTP(w), "Media.GetServiceCapabilities")
 		case strings.Contains(soapAction, "GetProfiles"):
 			mediaService := &media.ServiceContext{
 				Port:     cfg.Port,
 				Profiles: convertMediaProfiles(cfg.Profiles),
 			}
-			mediaService.GetProfilesHTTP(w)
+			handleServiceError(w, mediaService.GetProfilesHTTP(w), "Media.GetProfiles")
 		default:
 			handleUnsupportedSOAPAction(w, soapAction)
 		}
@@ -159,13 +173,13 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapAction, serv
 			ptzService := &ptz.ServiceContext{
 				Port: cfg.Port,
 			}
-			ptzService.GetServiceCapabilitiesHTTP(w)
+			handleServiceError(w, ptzService.GetServiceCapabilitiesHTTP(w), "PTZ.GetServiceCapabilities")
 		case strings.Contains(soapAction, "GetNodes"):
 			ptzService := &ptz.ServiceContext{
 				Port:     cfg.Port,
 				PTZNodes: convertPTZNodes(cfg.PTZNode),
 			}
-			ptzService.GetNodesHTTP(w)
+			handleServiceError(w, ptzService.GetNodesHTTP(w), "PTZ.GetNodes")
 		default:
 			handleUnsupportedSOAPAction(w, soapAction)
 		}
@@ -177,21 +191,21 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapAction, serv
 
 		switch {
 		case strings.Contains(soapAction, "GetServiceCapabilities"):
-			eventsService.GetServiceCapabilitiesHTTP(w)
+			handleServiceError(w, eventsService.GetServiceCapabilitiesHTTP(w), "Events.GetServiceCapabilities")
 		case strings.Contains(soapAction, "CreatePullPointSubscription"):
-			eventsService.CreatePullPointSubscriptionHTTP(w, r)
+			handleServiceError(w, eventsService.CreatePullPointSubscriptionHTTP(w, r), "Events.CreatePullPointSubscription")
 		case strings.Contains(soapAction, "PullMessages"):
-			eventsService.PullMessagesHTTP(w, r)
+			handleServiceError(w, eventsService.PullMessagesHTTP(w, r), "Events.PullMessages")
 		case strings.Contains(soapAction, "Subscribe"):
-			eventsService.SubscribeHTTP(w, r)
+			handleServiceError(w, eventsService.SubscribeHTTP(w, r), "Events.Subscribe")
 		case strings.Contains(soapAction, "Renew"):
-			eventsService.RenewHTTP(w, r)
+			handleServiceError(w, eventsService.RenewHTTP(w, r), "Events.Renew")
 		case strings.Contains(soapAction, "Unsubscribe"):
-			eventsService.UnsubscribeHTTP(w, r)
+			handleServiceError(w, eventsService.UnsubscribeHTTP(w, r), "Events.Unsubscribe")
 		case strings.Contains(soapAction, "GetEventProperties"):
-			eventsService.GetEventPropertiesHTTP(w)
+			handleServiceError(w, eventsService.GetEventPropertiesHTTP(w), "Events.GetEventProperties")
 		case strings.Contains(soapAction, "SetSynchronizationPoint"):
-			eventsService.SetSynchronizationPointHTTP(w, r)
+			handleServiceError(w, eventsService.SetSynchronizationPointHTTP(w, r), "Events.SetSynchronizationPoint")
 		default:
 			handleUnsupportedSOAPAction(w, soapAction)
 		}
@@ -201,13 +215,13 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapAction, serv
 			deviceioService := &deviceio.ServiceContext{
 				Port: cfg.Port,
 			}
-			deviceioService.GetServiceCapabilitiesHTTP(w)
+			handleServiceError(w, deviceioService.GetServiceCapabilitiesHTTP(w), "DeviceIO.GetServiceCapabilities")
 		case strings.Contains(soapAction, "GetRelayOutputs"):
 			deviceioService := &deviceio.ServiceContext{
 				Port:         cfg.Port,
 				RelayOutputs: convertRelayOutputs(cfg.RelayOutputs),
 			}
-			deviceioService.GetRelayOutputsHTTP(w)
+			handleServiceError(w, deviceioService.GetRelayOutputsHTTP(w), "DeviceIO.GetRelayOutputs")
 		default:
 			handleUnsupportedSOAPAction(w, soapAction)
 		}
@@ -218,13 +232,13 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapAction, serv
 
 // handleUnsupportedSOAPAction handles unsupported SOAP actions with consistent logging
 func handleUnsupportedSOAPAction(w http.ResponseWriter, soapAction string) {
-	logger.Warn("Unsupported SOAP action: %s", soapAction)
+	logger.Warnf("Unsupported SOAP action: %s", soapAction)
 	sendSOAPError(w, "Unsupported SOAP action")
 }
 
 // handleUnsupportedService handles unsupported services with consistent logging
 func handleUnsupportedService(w http.ResponseWriter, serviceName string) {
-	logger.Warn("Unsupported service: %s", serviceName)
+	logger.Warnf("Unsupported service: %s", serviceName)
 	sendSOAPError(w, "Unsupported service")
 }
 
@@ -232,7 +246,7 @@ func handleUnsupportedService(w http.ResponseWriter, serviceName string) {
 func sendSOAPError(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/soap+xml; charset=utf-8")
 	w.WriteHeader(http.StatusInternalServerError)
-	fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?>
+	if _, err := fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:tns="http://www.onvif.org/ver10/device/wsdl">
   <soap:Body>
     <soap:Fault>
@@ -244,14 +258,17 @@ func sendSOAPError(w http.ResponseWriter, message string) {
       </soap:Reason>
     </soap:Fault>
   </soap:Body>
-</soap:Envelope>`, message)
+</soap:Envelope>`, message); err != nil {
+		// Ignore write error in error handler
+		_ = err
+	}
 }
 
 // sendSOAPAuthError sends a SOAP fault response for authentication errors
 func sendSOAPAuthError(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/soap+xml; charset=utf-8")
 	w.WriteHeader(http.StatusUnauthorized)
-	fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?>
+	if _, err := fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:tns="http://www.onvif.org/ver10/device/wsdl">
   <soap:Body>
     <soap:Fault>
@@ -263,18 +280,21 @@ func sendSOAPAuthError(w http.ResponseWriter) {
       </soap:Reason>
     </soap:Fault>
   </soap:Body>
-</soap:Envelope>`)
+</soap:Envelope>`); err != nil {
+		// Ignore write error in auth error handler
+		_ = err
+	}
 }
 
 // onvifMiddleware provides ONVIF-specific middleware
-func onvifMiddleware(cfg *config.ServiceContext) func(http.Handler) http.Handler {
+func onvifMiddleware(_ *config.ServiceContext) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Set SOAP-specific headers
 			w.Header().Set("Content-Type", "application/soap+xml; charset=utf-8")
 
 			// Log ONVIF requests
-			logger.Debug("ONVIF request: %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+			logger.Debugf("ONVIF request: %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
 
 			next.ServeHTTP(w, r)
 		})
@@ -287,14 +307,14 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 		// Read the SOAP request from the request body
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			logger.Warn("Failed to read request body: %v", err)
+			logger.Warnf("Failed to read request body: %v", err)
 			http.Error(w, "Failed to read request body", http.StatusBadRequest)
 			return
 		}
 
 		soapRequest := string(body)
 		if soapRequest == "" {
-			logger.Warn("Empty SOAP request")
+			logger.Warnf("Empty SOAP request")
 			sendSOAPError(w, "Empty SOAP request")
 			return
 		}
@@ -302,7 +322,7 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 		// Parse the SOAP action from the request
 		soapAction := parseSOAPAction(soapRequest)
 		if soapAction == "" {
-			logger.Warn("Failed to parse SOAP action")
+			logger.Warnf("Failed to parse SOAP action")
 			sendSOAPError(w, "Failed to parse SOAP action")
 			return
 		}
@@ -311,7 +331,7 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 		if cfg.User != "" && cfg.Password != "" {
 			usernameToken, err := auth.ParseSOAPHeader(soapRequest)
 			if err != nil {
-				logger.Warn("Failed to parse SOAP header: %v", err)
+				logger.Warnf("Failed to parse SOAP header: %v", err)
 				sendSOAPAuthError(w)
 				return
 			}
@@ -322,14 +342,14 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 			}
 
 			if !authContext.ValidateUsernameToken(usernameToken) {
-				logger.Warn("Authentication failed")
+				logger.Warnf("Authentication failed")
 				sendSOAPAuthError(w)
 				return
 			}
 
 			// Validate timestamp to prevent replay attacks
 			if !auth.ValidateNonceTimestamp(usernameToken.Created, 300) { // 5 minutes max age
-				logger.Warn("Nonce timestamp validation failed")
+				logger.Warnf("Nonce timestamp validation failed")
 				sendSOAPError(w, "Nonce timestamp validation failed")
 				return
 			}
@@ -445,7 +465,7 @@ func convertRelayOutputs(configRelays []config.RelayOutput) []deviceio.RelayOutp
 	relayOutputs := make([]deviceio.RelayOutput, len(configRelays))
 	for i, cr := range configRelays {
 		idleState := "closed"
-		if cr.IdleState == config.IDLE_STATE_OPEN {
+		if cr.IdleState == config.IdleStateOpen {
 			idleState = "open"
 		}
 		relayOutputs[i] = deviceio.RelayOutput{

@@ -1,3 +1,4 @@
+// Package config provides configuration parsing and management for ONVIF services.
 package config
 
 import (
@@ -6,6 +7,16 @@ import (
 	"os"
 	"strconv"
 	"strings"
+)
+
+const (
+	unknownType = "UNKNOWN"
+	
+	// Configuration parsing constants
+	configKeyValueParts = 2  // Expected parts when splitting key=value
+	minProfileParts = 3      // Minimum parts for profile configuration
+	minRelayParts = 2        // Minimum parts for relay configuration  
+	minEventParts = 3        // Minimum parts for event configuration
 )
 
 // ServiceContext represents the main service context
@@ -17,7 +28,7 @@ type ServiceContext struct {
 	Model             string
 	FirmwareVer       string
 	SerialNum         string
-	HardwareId        string
+	HardwareID        string
 	UUID              string
 	Interface         string
 	AdvEnableMedia2   int
@@ -96,6 +107,7 @@ type Event struct {
 type StreamType int
 
 const (
+	// VIDEO_NONE represents no video stream
 	VIDEO_NONE StreamType = iota
 	JPEG
 	MPEG4
@@ -117,7 +129,7 @@ func (s StreamType) String() string {
 	case H265:
 		return "H265"
 	default:
-		return "UNKNOWN"
+		return unknownType
 	}
 }
 
@@ -125,6 +137,7 @@ func (s StreamType) String() string {
 type AudioType int
 
 const (
+	// AUDIO_NONE represents no audio stream
 	AUDIO_NONE AudioType = iota
 	G711
 	G726
@@ -143,7 +156,7 @@ func (a AudioType) String() string {
 	case AAC:
 		return "AAC"
 	default:
-		return "UNKNOWN"
+		return unknownType
 	}
 }
 
@@ -151,18 +164,20 @@ func (a AudioType) String() string {
 type IdleState int
 
 const (
-	IDLE_STATE_CLOSE IdleState = iota
-	IDLE_STATE_OPEN
+	// IdleStateClose represents a closed idle state
+	IdleStateClose IdleState = iota
+	IdleStateOpen
 )
 
 // EventsEnable represents the events service enable state
 type EventsEnable int
 
 const (
-	EVENTS_NONE EventsEnable = iota
-	EVENTS_PULLPOINT
-	EVENTS_BASESUBSCRIPTION
-	EVENTS_BOTH
+	// EventsNone represents no events enabled
+	EventsNone EventsEnable = iota
+	EventsPullPoint
+	EventsBaseSubscription
+	EventsBoth
 )
 
 // LoadConfig loads configuration from a file
@@ -171,7 +186,12 @@ func LoadConfig(filename string) (*ServiceContext, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open config file: %v", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			// Ignore close error - config file was successfully read
+			_ = closeErr
+		}
+	}()
 
 	context := &ServiceContext{
 		Profiles:     make([]StreamProfile, 0),
@@ -190,8 +210,8 @@ func LoadConfig(filename string) (*ServiceContext, error) {
 		}
 
 		// Parse key=value pairs
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
+		parts := strings.SplitN(line, "=", configKeyValueParts)
+		if len(parts) != configKeyValueParts {
 			continue
 		}
 
@@ -230,113 +250,110 @@ func parsePortValue(value, fieldName string) (int, error) {
 
 // parseConfigValue parses a single key=value configuration pair
 func parseConfigValue(context *ServiceContext, key, value string) error {
-	switch key {
-	case "port":
-		port, err := parsePortValue(value, "port")
+	// Try parsing basic string configurations
+	if err := parseBasicConfig(context, key, value); err == nil {
+		return nil
+	}
+
+	// Try parsing integer configurations
+	if err := parseIntConfig(context, key, value); err != nil {
+		return err
+	}
+
+	// Try parsing port configurations
+	if err := parsePortConfig(context, key, value); err != nil {
+		return err
+	}
+
+	// Handle prefixed configurations
+	return parsePrefixedConfig(context, key, value)
+}
+
+// parseBasicConfig handles basic string configuration values
+func parseBasicConfig(context *ServiceContext, key, value string) error {
+	basicConfigs := map[string]*string{
+		"user":         &context.User,
+		"password":     &context.Password,
+		"manufacturer": &context.Manufacturer,
+		"model":        &context.Model,
+		"firmware_ver": &context.FirmwareVer,
+		"serial_num":   &context.SerialNum,
+		"hardware_id":  &context.HardwareID,
+		"uuid":         &context.UUID,
+		"interface":    &context.Interface,
+	}
+
+	if target, exists := basicConfigs[key]; exists {
+		*target = value
+		return nil
+	}
+
+	return fmt.Errorf("not a basic config: %s", key)
+}
+
+// parseIntConfig handles integer configuration values
+func parseIntConfig(context *ServiceContext, key, value string) error {
+	intConfigs := map[string]*int{
+		"adv_enable_media2":    &context.AdvEnableMedia2,
+		"adv_fault_if_unknown": &context.AdvFaultIfUnknown,
+		"adv_fault_if_set":     &context.AdvFaultIfSet,
+		"adv_synology_nvr":     &context.AdvSynologyNVR,
+	}
+
+	if target, exists := intConfigs[key]; exists {
+		intValue, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("invalid %s value: %v", key, err)
+		}
+		*target = intValue
+		return nil
+	}
+
+	return nil
+}
+
+// parsePortConfig handles port configuration values
+func parsePortConfig(context *ServiceContext, key, value string) error {
+	portConfigs := map[string]*int{
+		"port":              &context.Port,
+		"notification_port": &context.NotificationPort,
+		"wsd_port":          &context.WSDPort,
+	}
+
+	if target, exists := portConfigs[key]; exists {
+		port, err := parsePortValue(value, key)
 		if err != nil {
 			return err
 		}
-		context.Port = port
+		*target = port
+		return nil
+	}
 
-	case "user":
-		context.User = value
+	return nil
+}
 
-	case "password":
-		context.Password = value
+// parsePrefixedConfig handles configuration keys with prefixes
+func parsePrefixedConfig(context *ServiceContext, key, value string) error {
+	prefixHandlers := []struct {
+		prefix  string
+		handler func(*ServiceContext, string, string) error
+	}{
+		{"profile.", parseProfileConfig},
+		{"scope.", parseScopeConfig},
+		{"relayoutput.", parseRelayOutputConfig},
+		{"ptz.", parsePTZConfig},
+		{"event.", parseEventConfig},
+	}
 
-	case "manufacturer":
-		context.Manufacturer = value
-
-	case "model":
-		context.Model = value
-
-	case "firmware_ver":
-		context.FirmwareVer = value
-
-	case "serial_num":
-		context.SerialNum = value
-
-	case "hardware_id":
-		context.HardwareId = value
-
-	case "uuid":
-		context.UUID = value
-
-	case "interface":
-		context.Interface = value
-
-	case "adv_enable_media2":
-		enable, err := strconv.Atoi(value)
-		if err != nil {
-			return fmt.Errorf("invalid adv_enable_media2 value: %v", err)
+	for _, handler := range prefixHandlers {
+		if strings.HasPrefix(key, handler.prefix) {
+			return handler.handler(context, key, value)
 		}
-		context.AdvEnableMedia2 = enable
+	}
 
-	case "adv_fault_if_unknown":
-		fault, err := strconv.Atoi(value)
-		if err != nil {
-			return fmt.Errorf("invalid adv_fault_if_unknown value: %v", err)
-		}
-		context.AdvFaultIfUnknown = fault
-
-	case "adv_fault_if_set":
-		fault, err := strconv.Atoi(value)
-		if err != nil {
-			return fmt.Errorf("invalid adv_fault_if_set value: %v", err)
-		}
-		context.AdvFaultIfSet = fault
-
-	case "adv_synology_nvr":
-		synology, err := strconv.Atoi(value)
-		if err != nil {
-			return fmt.Errorf("invalid adv_synology_nvr value: %v", err)
-		}
-		context.AdvSynologyNVR = synology
-
-	case "notification_port":
-		port, err := parsePortValue(value, "notification_port")
-		if err != nil {
-			return err
-		}
-		context.NotificationPort = port
-
-	case "wsd_port":
-		port, err := parsePortValue(value, "wsd_port")
-		if err != nil {
-			return err
-		}
-		context.WSDPort = port
-
-	default:
-		// Handle profile configurations
-		if strings.HasPrefix(key, "profile.") {
-			return parseProfileConfig(context, key, value)
-		}
-
-		// Handle scope configurations
-		if strings.HasPrefix(key, "scope.") {
-			return parseScopeConfig(context, key, value)
-		}
-
-		// Handle relay output configurations
-		if strings.HasPrefix(key, "relayoutput.") {
-			return parseRelayOutputConfig(context, key, value)
-		}
-
-		// Handle PTZ configurations
-		if strings.HasPrefix(key, "ptz.") {
-			return parsePTZConfig(context, key, value)
-		}
-
-		// Handle event configurations
-		if strings.HasPrefix(key, "event.") {
-			return parseEventConfig(context, key, value)
-		}
-
-		// Handle events enable configuration
-		if key == "events_enable" {
-			return parseEventsEnableConfig(context, value)
-		}
+	// Handle events enable configuration
+	if key == "events_enable" {
+		return parseEventsEnableConfig(context, value)
 	}
 
 	return nil
@@ -439,9 +456,9 @@ func parseRelayOutputConfig(context *ServiceContext, key, value string) error {
 	switch property {
 	case "idle_state":
 		if value == "open" {
-			relay.IdleState = IDLE_STATE_OPEN
+			relay.IdleState = IdleStateOpen
 		} else {
-			relay.IdleState = IDLE_STATE_CLOSE
+			relay.IdleState = IdleStateClose
 		}
 	case "close_cmd":
 		relay.CloseCmd = value
@@ -456,86 +473,79 @@ func parseRelayOutputConfig(context *ServiceContext, key, value string) error {
 func parsePTZConfig(context *ServiceContext, key, value string) error {
 	property := strings.TrimPrefix(key, "ptz.")
 
-	switch property {
-	case "enable":
-		enable, err := strconv.Atoi(value)
-		if err != nil {
-			return fmt.Errorf("invalid ptz enable value: %v", err)
-		}
-		context.PTZNode.Enable = enable
-	case "min_step_x":
+	// Handle enable property
+	if property == "enable" {
+		return parsePTZEnable(context, value)
+	}
+
+	// Handle step properties
+	if err := parsePTZStepProperty(context, property, value); err != nil {
+		return err
+	}
+
+	// Handle command properties
+	parsePTZCommand(context, property, value)
+
+	return nil
+}
+
+// parsePTZEnable parses the PTZ enable configuration
+func parsePTZEnable(context *ServiceContext, value string) error {
+	enable, err := strconv.Atoi(value)
+	if err != nil {
+		return fmt.Errorf("invalid ptz enable value: %v", err)
+	}
+	context.PTZNode.Enable = enable
+	return nil
+}
+
+// parsePTZStepProperty parses PTZ step-related properties
+func parsePTZStepProperty(context *ServiceContext, property, value string) error {
+	stepProperties := map[string]*float64{
+		"min_step_x": &context.PTZNode.MinStepX,
+		"max_step_x": &context.PTZNode.MaxStepX,
+		"min_step_y": &context.PTZNode.MinStepY,
+		"max_step_y": &context.PTZNode.MaxStepY,
+		"min_step_z": &context.PTZNode.MinStepZ,
+		"max_step_z": &context.PTZNode.MaxStepZ,
+	}
+
+	if target, exists := stepProperties[property]; exists {
 		step, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			return fmt.Errorf("invalid min_step_x value: %v", err)
+			return fmt.Errorf("invalid %s value: %v", property, err)
 		}
-		context.PTZNode.MinStepX = step
-	case "max_step_x":
-		step, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			return fmt.Errorf("invalid max_step_x value: %v", err)
-		}
-		context.PTZNode.MaxStepX = step
-	case "min_step_y":
-		step, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			return fmt.Errorf("invalid min_step_y value: %v", err)
-		}
-		context.PTZNode.MinStepY = step
-	case "max_step_y":
-		step, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			return fmt.Errorf("invalid max_step_y value: %v", err)
-		}
-		context.PTZNode.MaxStepY = step
-	case "min_step_z":
-		step, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			return fmt.Errorf("invalid min_step_z value: %v", err)
-		}
-		context.PTZNode.MinStepZ = step
-	case "max_step_z":
-		step, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			return fmt.Errorf("invalid max_step_z value: %v", err)
-		}
-		context.PTZNode.MaxStepZ = step
-	case "get_position":
-		context.PTZNode.GetPosition = value
-	case "is_moving":
-		context.PTZNode.IsMoving = value
-	case "move_left":
-		context.PTZNode.MoveLeft = value
-	case "move_right":
-		context.PTZNode.MoveRight = value
-	case "move_up":
-		context.PTZNode.MoveUp = value
-	case "move_down":
-		context.PTZNode.MoveDown = value
-	case "move_in":
-		context.PTZNode.MoveIn = value
-	case "move_out":
-		context.PTZNode.MoveOut = value
-	case "move_stop":
-		context.PTZNode.MoveStop = value
-	case "move_preset":
-		context.PTZNode.MovePreset = value
-	case "goto_home_position":
-		context.PTZNode.GotoHomePosition = value
-	case "set_preset":
-		context.PTZNode.SetPreset = value
-	case "set_home_position":
-		context.PTZNode.SetHomePosition = value
-	case "remove_preset":
-		context.PTZNode.RemovePreset = value
-	case "jump_to_abs":
-		context.PTZNode.JumpToAbs = value
-	case "jump_to_rel":
-		context.PTZNode.JumpToRel = value
-	case "get_presets":
-		context.PTZNode.GetPresets = value
+		*target = step
 	}
 
 	return nil
+}
+
+// parsePTZCommand parses PTZ command properties
+func parsePTZCommand(context *ServiceContext, property, value string) {
+	commandProperties := map[string]*string{
+		"get_position":       &context.PTZNode.GetPosition,
+		"is_moving":          &context.PTZNode.IsMoving,
+		"move_left":          &context.PTZNode.MoveLeft,
+		"move_right":         &context.PTZNode.MoveRight,
+		"move_up":            &context.PTZNode.MoveUp,
+		"move_down":          &context.PTZNode.MoveDown,
+		"move_in":            &context.PTZNode.MoveIn,
+		"move_out":           &context.PTZNode.MoveOut,
+		"move_stop":          &context.PTZNode.MoveStop,
+		"move_preset":        &context.PTZNode.MovePreset,
+		"goto_home_position": &context.PTZNode.GotoHomePosition,
+		"set_preset":         &context.PTZNode.SetPreset,
+		"set_home_position":  &context.PTZNode.SetHomePosition,
+		"remove_preset":      &context.PTZNode.RemovePreset,
+		"jump_to_abs":        &context.PTZNode.JumpToAbs,
+		"jump_to_rel":        &context.PTZNode.JumpToRel,
+		"get_presets":        &context.PTZNode.GetPresets,
+	}
+
+	if target, exists := commandProperties[property]; exists {
+		*target = value
+	}
 }
 
 // parseEventConfig parses event-related configuration values
@@ -579,13 +589,13 @@ func parseEventConfig(context *ServiceContext, key, value string) error {
 func parseEventsEnableConfig(context *ServiceContext, value string) error {
 	switch value {
 	case "pullpoint":
-		context.EventsEnable = EVENTS_PULLPOINT
+		context.EventsEnable = EventsPullPoint
 	case "basesubscription":
-		context.EventsEnable = EVENTS_BASESUBSCRIPTION
+		context.EventsEnable = EventsBaseSubscription
 	case "both":
-		context.EventsEnable = EVENTS_BOTH
+		context.EventsEnable = EventsBoth
 	default:
-		context.EventsEnable = EVENTS_NONE
+		context.EventsEnable = EventsNone
 	}
 
 	return nil

@@ -1,3 +1,4 @@
+// Package events provides ONVIF Events service implementation.
 package events
 
 import (
@@ -13,8 +14,29 @@ import (
 
 const (
 	MaxSubscriptions           = 16
+	// DefaultPullPointTimeout is the default timeout for pull point subscriptions
 	DefaultPullPointTimeout    = 60 * time.Second
+	// DefaultSubscriptionTimeout is the default timeout for base subscriptions  
 	DefaultSubscriptionTimeout = 600 * time.Second
+
+	// Data attribute names
+	stateDataName        = "State"
+	logicalStateDataName = "LogicalState"
+
+	// Data values
+	trueValue     = "true"
+	falseValue    = "false"
+	activeValue   = "active"
+	inactiveValue = "inactive"
+
+	// Topic names
+	relayTriggerTopic = "tns1:Device/Trigger/Relay"
+
+	// Event generation and processing constants
+	eventGenerationInterval = 10 * time.Second       // How often test events are generated
+	pullMessagesSleep       = 100 * time.Millisecond // Sleep between pull message checks
+	maxSubscriptionID       = 65535                  // Maximum subscription ID before wrapping
+	defaultPullTimeout      = 30 * time.Second       // Default timeout for pull operations
 )
 
 // ServiceContext holds the configuration and state for the events service
@@ -53,7 +75,9 @@ type Subscription struct {
 type SubscriptionType int
 
 const (
+	// PullPointSubscription represents a pull-point subscription
 	PullPointSubscription SubscriptionType = iota
+	// BaseSubscription represents a base subscription  
 	BaseSubscription
 )
 
@@ -116,11 +140,11 @@ func (s *ServiceContext) createSubscription(subType SubscriptionType, address, t
 
 	s.subscriptions[s.nextSubID] = sub
 	s.nextSubID++
-	if s.nextSubID > 65535 {
+	if s.nextSubID > maxSubscriptionID {
 		s.nextSubID = 1
 	}
 
-	logger.Debug("Created subscription ID=%d, type=%d, expires=%s", sub.ID, sub.Type, sub.ExpireTime.Format(time.RFC3339))
+	logger.Debugf("Created subscription ID=%d, type=%d, expires=%s", sub.ID, sub.Type, sub.ExpireTime.Format(time.RFC3339))
 	return sub
 }
 
@@ -131,7 +155,7 @@ func (s *ServiceContext) removeSubscription(id int) bool {
 
 	if _, exists := s.subscriptions[id]; exists {
 		delete(s.subscriptions, id)
-		logger.Debug("Removed subscription ID=%d", id)
+		logger.Debugf("Removed subscription ID=%d", id)
 		return true
 	}
 	return false
@@ -146,7 +170,7 @@ func (s *ServiceContext) cleanExpiredSubscriptions() {
 	for id, sub := range s.subscriptions {
 		if now.After(sub.ExpireTime) {
 			delete(s.subscriptions, id)
-			logger.Debug("Expired subscription ID=%d removed", id)
+			logger.Debugf("Expired subscription ID=%d removed", id)
 		}
 	}
 }
@@ -169,17 +193,17 @@ func (s *ServiceContext) AddEventMessage(topic string, state bool, timestamp tim
 		if isTopicMatching(sub.TopicExpression, topic) {
 			sub.messageMutex.Lock()
 
-			dataName := "State"
-			dataValue := "false"
+			dataName := stateDataName
+			dataValue := falseValue
 			if state {
-				dataValue = "true"
+				dataValue = trueValue
 			}
-			if topic == "tns1:Device/Trigger/Relay" {
-				dataName = "LogicalState"
+			if topic == relayTriggerTopic {
+				dataName = logicalStateDataName
 				if state {
-					dataValue = "active"
+					dataValue = activeValue
 				} else {
-					dataValue = "inactive"
+					dataValue = inactiveValue
 				}
 			}
 
@@ -202,16 +226,16 @@ func (s *ServiceContext) AddEventMessage(topic string, state bool, timestamp tim
 // StartEventGenerator starts a background goroutine that generates test events
 func (s *ServiceContext) StartEventGenerator() {
 	go func() {
-		ticker := time.NewTicker(10 * time.Second)
+		ticker := time.NewTicker(eventGenerationInterval)
 		defer ticker.Stop()
-		
+
 		eventState := false
 		for range ticker.C {
 			// Generate sample events for testing
 			s.AddEventMessage("tns1:VideoSource/MotionAlarm", eventState, time.Now())
 			s.AddEventMessage("tns1:Device/Trigger/Relay", eventState, time.Now())
 			eventState = !eventState
-			logger.Debug("Generated test events with state: %v", eventState)
+			logger.Debugf("Generated test events with state: %v", eventState)
 		}
 	}()
 }
@@ -229,8 +253,8 @@ func (s *ServiceContext) GetServiceCapabilitiesHTTP(w http.ResponseWriter) error
 }
 
 // CreatePullPointSubscriptionHTTP handles the CreatePullPointSubscription ONVIF events service method via HTTP
-func (s *ServiceContext) CreatePullPointSubscriptionHTTP(w http.ResponseWriter, r *http.Request) error {
-	logger.Info("CreatePullPointSubscription received")
+func (s *ServiceContext) CreatePullPointSubscriptionHTTP(w http.ResponseWriter, _ *http.Request) error {
+	logger.Infof("CreatePullPointSubscription received")
 
 	// Clean expired subscriptions
 	s.cleanExpiredSubscriptions()
@@ -260,7 +284,7 @@ func (s *ServiceContext) CreatePullPointSubscriptionHTTP(w http.ResponseWriter, 
 
 // PullMessagesHTTP handles the PullMessages ONVIF events service method via HTTP
 func (s *ServiceContext) PullMessagesHTTP(w http.ResponseWriter, r *http.Request) error {
-	logger.Info("PullMessages request received")
+	logger.Infof("PullMessages request received")
 
 	// Parse subscription ID from query parameters
 	subIDStr := r.URL.Query().Get("sub")
@@ -283,7 +307,7 @@ func (s *ServiceContext) PullMessagesHTTP(w http.ResponseWriter, r *http.Request
 	}
 
 	// Wait for messages or timeout (simplified - in real implementation would parse timeout from request)
-	timeout := 30 * time.Second
+	timeout := defaultPullTimeout
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Before(deadline) {
@@ -294,7 +318,7 @@ func (s *ServiceContext) PullMessagesHTTP(w http.ResponseWriter, r *http.Request
 		if hasMessages {
 			break
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(pullMessagesSleep)
 	}
 
 	now := time.Now()
@@ -307,8 +331,8 @@ func (s *ServiceContext) PullMessagesHTTP(w http.ResponseWriter, r *http.Request
 }
 
 // SubscribeHTTP handles the Subscribe ONVIF events service method via HTTP
-func (s *ServiceContext) SubscribeHTTP(w http.ResponseWriter, r *http.Request) error {
-	logger.Info("Subscribe request received")
+func (s *ServiceContext) SubscribeHTTP(w http.ResponseWriter, _ *http.Request) error {
+	logger.Infof("Subscribe request received")
 
 	// Clean expired subscriptions
 	s.cleanExpiredSubscriptions()
@@ -338,7 +362,7 @@ func (s *ServiceContext) SubscribeHTTP(w http.ResponseWriter, r *http.Request) e
 
 // RenewHTTP handles the Renew ONVIF events service method via HTTP
 func (s *ServiceContext) RenewHTTP(w http.ResponseWriter, r *http.Request) error {
-	logger.Info("Renew request received")
+	logger.Infof("Renew request received")
 
 	subIDStr := r.URL.Query().Get("sub")
 	if subIDStr == "" {
@@ -373,7 +397,7 @@ func (s *ServiceContext) RenewHTTP(w http.ResponseWriter, r *http.Request) error
 
 // UnsubscribeHTTP handles the Unsubscribe ONVIF events service method via HTTP
 func (s *ServiceContext) UnsubscribeHTTP(w http.ResponseWriter, r *http.Request) error {
-	logger.Info("Unsubscribe request received")
+	logger.Infof("Unsubscribe request received")
 
 	subIDStr := r.URL.Query().Get("sub")
 	if subIDStr == "" {
@@ -407,7 +431,7 @@ func (s *ServiceContext) GetEventPropertiesHTTP(w http.ResponseWriter) error {
 
 // SetSynchronizationPointHTTP handles the SetSynchronizationPoint ONVIF events service method via HTTP
 func (s *ServiceContext) SetSynchronizationPointHTTP(w http.ResponseWriter, r *http.Request) error {
-	logger.Info("SetSynchronizationPoint request received")
+	logger.Infof("SetSynchronizationPoint request received")
 
 	subIDStr := r.URL.Query().Get("sub")
 	if subIDStr == "" {

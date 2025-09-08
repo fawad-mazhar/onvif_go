@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"golang.org/x/net/ipv4"
 	"net"
 	"os"
 	"os/signal"
@@ -15,20 +14,23 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/net/ipv4"
+
 	"github.com/fawad-mazhar/onvif-go/internal/config"
 	"github.com/fawad-mazhar/onvif-go/internal/logger"
 	"github.com/fawad-mazhar/onvif-go/internal/xml"
 )
 
 const (
-	// ONVIF WS-Discovery multicast address and port
+	// MulticastAddress is the ONVIF WS-Discovery multicast address
 	MulticastAddress = "239.255.255.250"
+	// MulticastPort is the ONVIF WS-Discovery multicast port
 	MulticastPort    = 3702
 
-	// ONVIF device type
+	// DeviceType is the ONVIF device type
 	DeviceType = "tdn:NetworkVideoTransmitter"
 
-	// WS-Discovery actions
+	// ActionHello is the WS-Discovery Hello action
 	ActionHello        = "http://schemas.xmlsoap.org/ws/2005/04/discovery/Hello"
 	ActionBye          = "http://schemas.xmlsoap.org/ws/2005/04/discovery/Bye"
 	ActionProbe        = "http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe"
@@ -90,7 +92,7 @@ func NewWSDServer(cfg *config.ServiceContext) (*WSDServer, error) {
 		cancel:     cancel,
 	}
 
-	logger.Info("WS-Discovery server initialized - IP: %s, UUID: %s", localIP, deviceUUID)
+	logger.Infof("WS-Discovery server initialized - IP: %s, UUID: %s", localIP, deviceUUID)
 	return server, nil
 }
 
@@ -100,21 +102,25 @@ func (s *WSDServer) Start() error {
 	if err := s.setupMulticastSocket(); err != nil {
 		return fmt.Errorf("failed to setup multicast socket: %v", err)
 	}
-	defer s.conn.Close()
+	defer func() {
+		if err := s.conn.Close(); err != nil {
+			logger.Errorf("Error closing connection: %v", err)
+		}
+	}()
 
 	// Set up signal handler for graceful shutdown
 	s.setupSignalHandler()
 
 	// Send Hello announcement
 	if err := s.sendHello(); err != nil {
-		logger.Warn("Failed to send Hello message: %v", err)
+		logger.Warnf("Failed to send Hello message: %v", err)
 	}
 
 	// Start listening for discovery messages
 	s.wg.Add(1)
 	go s.listenForMessages()
 
-	logger.Info("WS-Discovery server started on %s:%d", MulticastAddress, MulticastPort)
+	logger.Infof("WS-Discovery server started on %s:%d", MulticastAddress, MulticastPort)
 
 	// Wait for shutdown
 	s.wg.Wait()
@@ -138,7 +144,7 @@ func (s *WSDServer) setupMulticastSocket() error {
 	}
 	s.conn = conn
 
-	logger.Info("WS-Discovery multicast socket setup successful on %s:%d", MulticastAddress, MulticastPort)
+	logger.Infof("WS-Discovery multicast socket setup successful on %s:%d", MulticastAddress, MulticastPort)
 	return nil
 }
 
@@ -152,20 +158,20 @@ func (s *WSDServer) setupMulticastWithFallback() (*net.UDPConn, error) {
 		return conn, nil
 	}
 	lastErr = err
-	logger.Warn("Multicast with interface failed: %v, trying fallback approach", err)
+	logger.Warnf("Multicast with interface failed: %v, trying fallback approach", err)
 
 	// Approach 2: Try simple UDP listen without explicit multicast join
 	conn, err = s.trySimpleUDPListen()
 	if err == nil {
-		logger.Warn("Using fallback UDP listen mode - multicast may be limited")
+		logger.Warnf("Using fallback UDP listen mode - multicast may be limited")
 		return conn, nil
 	}
-	logger.Warn("Simple UDP listen failed: %v", err)
+	logger.Warnf("Simple UDP listen failed: %v", err)
 
 	// Approach 3: Try with any available port (for testing)
 	conn, err = s.tryUDPListenAnyPort()
 	if err == nil {
-		logger.Warn("Using UDP listen on alternative port - WS-Discovery may not work with standard clients")
+		logger.Warnf("Using UDP listen on alternative port - WS-Discovery may not work with standard clients")
 		return conn, nil
 	}
 
@@ -186,7 +192,9 @@ func (s *WSDServer) tryMulticastWithInterface() (*net.UDPConn, error) {
 	// Get the network interface
 	iface, err := s.getNetworkInterface()
 	if err != nil {
-		conn.Close()
+		if closeErr := conn.Close(); closeErr != nil {
+			logger.Errorf("Error closing connection: %v", closeErr)
+		}
 		return nil, fmt.Errorf("failed to get network interface: %v", err)
 	}
 
@@ -195,21 +203,23 @@ func (s *WSDServer) tryMulticastWithInterface() (*net.UDPConn, error) {
 
 	// Join multicast group
 	if err := packetConn.JoinGroup(iface, s.multicastAddr); err != nil {
-		conn.Close()
+		if closeErr := conn.Close(); closeErr != nil {
+			logger.Errorf("Error closing connection: %v", closeErr)
+		}
 		return nil, fmt.Errorf("failed to join multicast group: %v", err)
 	}
 
 	// Set multicast interface
 	if err := packetConn.SetMulticastInterface(iface); err != nil {
-		logger.Warn("Failed to set multicast interface: %v", err)
+		logger.Warnf("Failed to set multicast interface: %v", err)
 	}
 
 	// Set multicast loop (don't receive own messages)
 	if err := packetConn.SetMulticastLoopback(false); err != nil {
-		logger.Warn("Failed to set multicast loopback: %v", err)
+		logger.Warnf("Failed to set multicast loopback: %v", err)
 	}
 
-	logger.Info("Joined multicast group %s on interface %s", MulticastAddress, iface.Name)
+	logger.Infof("Joined multicast group %s on interface %s", MulticastAddress, iface.Name)
 	return conn, nil
 }
 
@@ -223,7 +233,7 @@ func (s *WSDServer) trySimpleUDPListen() (*net.UDPConn, error) {
 		return nil, fmt.Errorf("failed to create simple UDP socket: %v", err)
 	}
 
-	logger.Info("Created UDP socket on port %d (without multicast join)", MulticastPort)
+	logger.Infof("Created UDP socket on port %d (without multicast join)", MulticastPort)
 	return conn, nil
 }
 
@@ -238,7 +248,7 @@ func (s *WSDServer) tryUDPListenAnyPort() (*net.UDPConn, error) {
 	}
 
 	addr := conn.LocalAddr().(*net.UDPAddr)
-	logger.Info("Created UDP socket on port %d (fallback mode)", addr.Port)
+	logger.Infof("Created UDP socket on port %d (fallback mode)", addr.Port)
 	return conn, nil
 }
 
@@ -286,11 +296,11 @@ func (s *WSDServer) setupSignalHandler() {
 
 	go func() {
 		<-sigChan
-		logger.Info("Shutdown signal received, sending Bye message...")
+		logger.Infof("Shutdown signal received, sending Bye message...")
 
 		// Send Bye message
 		if err := s.sendBye(); err != nil {
-			logger.Warn("Failed to send Bye message: %v", err)
+			logger.Warnf("Failed to send Bye message: %v", err)
 		}
 
 		// Cancel context to stop other goroutines
@@ -307,24 +317,27 @@ func (s *WSDServer) listenForMessages() {
 	for {
 		select {
 		case <-s.ctx.Done():
-			logger.Info("WS-Discovery server shutting down...")
+			logger.Infof("WS-Discovery server shutting down...")
 			return
 
 		default:
 			// Set read timeout
-			s.conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+			if err := s.conn.SetReadDeadline(time.Now().Add(1 * time.Second)); err != nil {
+				logger.Errorf("Error setting read deadline: %v", err)
+				continue
+			}
 
 			n, addr, err := s.conn.ReadFromUDP(buffer)
 			if err != nil {
 				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 					continue // Timeout is expected, continue listening
 				}
-				logger.Warn("Error reading UDP message: %v", err)
+				logger.Warnf("Error reading UDP message: %v", err)
 				continue
 			}
 
 			message := string(buffer[:n])
-			logger.Debug("Received message from %s: %s", addr.String(), message)
+			logger.Debugf("Received message from %s: %s", addr.String(), message)
 
 			// Process the message
 			s.processMessage(message, addr)
@@ -337,11 +350,11 @@ func (s *WSDServer) processMessage(message string, from *net.UDPAddr) {
 	// Parse SOAP action from message
 	action := s.parseSOAPAction(message)
 	if action == "" {
-		logger.Debug("Could not parse SOAP action from message")
+		logger.Debugf("Could not parse SOAP action from message")
 		return
 	}
 
-	logger.Debug("Processing WS-Discovery action: %s", action)
+	logger.Debugf("Processing WS-Discovery action: %s", action)
 
 	switch action {
 	case ActionProbe:
@@ -349,7 +362,7 @@ func (s *WSDServer) processMessage(message string, from *net.UDPAddr) {
 	case ActionResolve:
 		s.handleResolve(message, from)
 	default:
-		logger.Debug("Ignoring unknown WS-Discovery action: %s", action)
+		logger.Debugf("Ignoring unknown WS-Discovery action: %s", action)
 	}
 }
 
@@ -451,94 +464,53 @@ func (s *WSDServer) getNextMessageNumber() int64 {
 
 // handleProbe processes Probe messages and sends ProbeMatch responses
 func (s *WSDServer) handleProbe(message string, from *net.UDPAddr) {
-	logger.Debug("Handling Probe request from %s", from.String())
-
-	// Parse MessageID from incoming message for RelatesTo
-	messageID := s.parseMessageID(message)
-	if messageID == "" {
-		logger.Warn("Could not parse MessageID from Probe message")
-		return
-	}
-
-	// Generate ProbeMatch response
-	response, err := s.generateProbeMatchResponse(messageID)
-	if err != nil {
-		logger.Error("Failed to generate ProbeMatch response: %v", err)
-		return
-	}
-
-	// Send unicast response to the requester
-	if err := s.sendUnicastMessage(response, from); err != nil {
-		logger.Error("Failed to send ProbeMatch response: %v", err)
-		return
-	}
-
-	logger.Debug("Sent ProbeMatch response to %s", from.String())
+	s.handleRequestMessage(message, from, "Probe", s.generateProbeMatchResponse)
 }
 
 // handleResolve processes Resolve messages and sends ResolveMatch responses
 func (s *WSDServer) handleResolve(message string, from *net.UDPAddr) {
-	logger.Debug("Handling Resolve request from %s", from.String())
+	s.handleRequestMessage(message, from, "Resolve", s.generateResolveMatchResponse)
+}
+
+// handleRequestMessage is a common handler for Probe and Resolve requests
+func (s *WSDServer) handleRequestMessage(message string, from *net.UDPAddr, requestType string, generateResponse func(string) (string, error)) {
+	logger.Debugf("Handling %s request from %s", requestType, from.String())
 
 	// Parse MessageID from incoming message for RelatesTo
 	messageID := s.parseMessageID(message)
 	if messageID == "" {
-		logger.Warn("Could not parse MessageID from Resolve message")
+		logger.Warnf("Could not parse MessageID from %s message", requestType)
 		return
 	}
 
-	// Generate ResolveMatch response
-	response, err := s.generateResolveMatchResponse(messageID)
+	// Generate response
+	response, err := generateResponse(messageID)
 	if err != nil {
-		logger.Error("Failed to generate ResolveMatch response: %v", err)
+		logger.Errorf("Failed to generate %sMatch response: %v", requestType, err)
 		return
 	}
 
 	// Send unicast response to the requester
 	if err := s.sendUnicastMessage(response, from); err != nil {
-		logger.Error("Failed to send ResolveMatch response: %v", err)
+		logger.Errorf("Failed to send %sMatch response: %v", requestType, err)
 		return
 	}
 
-	logger.Debug("Sent ResolveMatch response to %s", from.String())
+	logger.Debugf("Sent %sMatch response to %s", requestType, from.String())
 }
 
 // generateProbeMatchResponse generates a SOAP ProbeMatch response
 func (s *WSDServer) generateProbeMatchResponse(relatesTo string) (string, error) {
-	// Build service URL (XAddr)
-	serviceURL := fmt.Sprintf("http://%s:%d/onvif/device_service", s.localIP, s.config.Port)
-
-	// Build scopes
-	scopes := s.buildDeviceScopes()
-
-	// Create replacements map
-	replacements := map[string]string{
-		"%MSG_UUID%":    generateUUID(),
-		"%RELATES_TO%":  relatesTo,
-		"%UUID%":        s.deviceUUID,
-		"%DEVICE_TYPE%": DeviceType,
-		"%SCOPES%":      scopes,
-		"%XADDRS%":      serviceURL,
-		"%MSG_NUMBER%":  strconv.FormatInt(s.getNextMessageNumber(), 10),
-	}
-
-	// Use template from service_files
-	templatePath := "service_files/wsd/ProbeMatches.xml"
-	if !xml.FileExists(templatePath) {
-		// Fallback to hardcoded template
-		return s.generateHardcodedProbeMatch(replacements), nil
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return "", fmt.Errorf("failed to process ProbeMatch template: %v", err)
-	}
-
-	return response, nil
+	return s.generateMatchResponse(relatesTo, "service_files/wsd/ProbeMatches.xml", "ProbeMatch", s.generateHardcodedProbeMatch)
 }
 
 // generateResolveMatchResponse generates a SOAP ResolveMatch response
 func (s *WSDServer) generateResolveMatchResponse(relatesTo string) (string, error) {
+	return s.generateMatchResponse(relatesTo, "service_files/wsd/ResolveMatches.xml", "ResolveMatch", s.generateHardcodedResolveMatch)
+}
+
+// generateMatchResponse is a common function for generating match responses
+func (s *WSDServer) generateMatchResponse(relatesTo, templatePath, responseType string, hardcodedGenerator func(map[string]string) string) (string, error) {
 	// Build service URL (XAddr)
 	serviceURL := fmt.Sprintf("http://%s:%d/onvif/device_service", s.localIP, s.config.Port)
 
@@ -557,15 +529,14 @@ func (s *WSDServer) generateResolveMatchResponse(relatesTo string) (string, erro
 	}
 
 	// Use template from service_files
-	templatePath := "service_files/wsd/ResolveMatches.xml"
 	if !xml.FileExists(templatePath) {
 		// Fallback to hardcoded template
-		return s.generateHardcodedResolveMatch(replacements), nil
+		return hardcodedGenerator(replacements), nil
 	}
 
 	response, err := xml.ProcessTemplate(templatePath, replacements)
 	if err != nil {
-		return "", fmt.Errorf("failed to process ResolveMatch template: %v", err)
+		return "", fmt.Errorf("failed to process %s template: %v", responseType, err)
 	}
 
 	return response, nil
@@ -687,7 +658,7 @@ func (s *WSDServer) sendMulticastMessage(message string) error {
 
 // sendHello sends a Hello announcement to the multicast group
 func (s *WSDServer) sendHello() error {
-	logger.Info("Sending Hello announcement...")
+	logger.Infof("Sending Hello announcement...")
 
 	// Generate Hello message
 	message, err := s.generateHelloMessage()
@@ -700,13 +671,13 @@ func (s *WSDServer) sendHello() error {
 		return fmt.Errorf("failed to send Hello message: %v", err)
 	}
 
-	logger.Info("Hello announcement sent successfully")
+	logger.Infof("Hello announcement sent successfully")
 	return nil
 }
 
 // sendBye sends a Bye announcement to the multicast group
 func (s *WSDServer) sendBye() error {
-	logger.Info("Sending Bye announcement...")
+	logger.Infof("Sending Bye announcement...")
 
 	// Generate Bye message
 	message, err := s.generateByeMessage()
@@ -719,45 +690,22 @@ func (s *WSDServer) sendBye() error {
 		return fmt.Errorf("failed to send Bye message: %v", err)
 	}
 
-	logger.Info("Bye announcement sent successfully")
+	logger.Infof("Bye announcement sent successfully")
 	return nil
 }
 
 // generateHelloMessage generates a SOAP Hello announcement
 func (s *WSDServer) generateHelloMessage() (string, error) {
-	// Build service URL (XAddr)
-	serviceURL := fmt.Sprintf("http://%s:%d/onvif/device_service", s.localIP, s.config.Port)
-
-	// Build scopes
-	scopes := s.buildDeviceScopes()
-
-	// Create replacements map
-	replacements := map[string]string{
-		"%MSG_UUID%":    generateUUID(),
-		"%UUID%":        s.deviceUUID,
-		"%DEVICE_TYPE%": DeviceType,
-		"%SCOPES%":      scopes,
-		"%XADDRS%":      serviceURL,
-		"%MSG_NUMBER%":  strconv.FormatInt(s.getNextMessageNumber(), 10),
-	}
-
-	// Use template from service_files
-	templatePath := "service_files/wsd/Hello.xml"
-	if !xml.FileExists(templatePath) {
-		// Fallback to hardcoded template
-		return s.generateHardcodedHello(replacements), nil
-	}
-
-	response, err := xml.ProcessTemplate(templatePath, replacements)
-	if err != nil {
-		return "", fmt.Errorf("failed to process Hello template: %v", err)
-	}
-
-	return response, nil
+	return s.generateAnnouncementMessage("service_files/wsd/Hello.xml", "Hello", s.generateHardcodedHello)
 }
 
 // generateByeMessage generates a SOAP Bye announcement
 func (s *WSDServer) generateByeMessage() (string, error) {
+	return s.generateAnnouncementMessage("service_files/wsd/Bye.xml", "Bye", s.generateHardcodedBye)
+}
+
+// generateAnnouncementMessage is a common function for generating Hello/Bye messages
+func (s *WSDServer) generateAnnouncementMessage(templatePath, messageType string, hardcodedGenerator func(map[string]string) string) (string, error) {
 	// Build service URL (XAddr)
 	serviceURL := fmt.Sprintf("http://%s:%d/onvif/device_service", s.localIP, s.config.Port)
 
@@ -775,15 +723,14 @@ func (s *WSDServer) generateByeMessage() (string, error) {
 	}
 
 	// Use template from service_files
-	templatePath := "service_files/wsd/Bye.xml"
 	if !xml.FileExists(templatePath) {
 		// Fallback to hardcoded template
-		return s.generateHardcodedBye(replacements), nil
+		return hardcodedGenerator(replacements), nil
 	}
 
 	response, err := xml.ProcessTemplate(templatePath, replacements)
 	if err != nil {
-		return "", fmt.Errorf("failed to process Bye template: %v", err)
+		return "", fmt.Errorf("failed to process %s template: %v", messageType, err)
 	}
 
 	return response, nil

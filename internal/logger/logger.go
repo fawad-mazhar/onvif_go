@@ -1,7 +1,9 @@
+// Package logger provides logging functionality for ONVIF services.
 package logger
 
 import (
 	"fmt"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -32,47 +34,48 @@ func InitLogger(level Level) {
 	logger.SetLevel(logrus.Level(level))
 }
 
-// Fatal logs a fatal error message
-func Fatal(format string, args ...interface{}) {
+// Fatalf logs a fatal error message
+func Fatalf(format string, args ...interface{}) {
 	if len(args) > 0 {
-		logger.Fatal(fmt.Sprintf(format, args...))
+		logger.Fatalf(fmt.Sprintf(format, args...))
 	} else {
-		logger.Fatal(format)
+		logger.Fatalf(format)
 	}
 }
 
-// Error logs an error message
-func Error(format string, args ...interface{}) {
+// Errorf logs an error message
+func Errorf(format string, args ...interface{}) {
 	if len(args) > 0 {
-		logger.Error(fmt.Sprintf(format, args...))
+		logger.Errorf(fmt.Sprintf(format, args...))
 	} else {
-		logger.Error(format)
+		logger.Errorf(format)
 	}
 }
 
-// Warn logs a warning message
-func Warn(format string, args ...interface{}) {
+// Warnf logs a warning message
+func Warnf(format string, args ...interface{}) {
 	if len(args) > 0 {
-		logger.Warn(fmt.Sprintf(format, args...))
+		logger.Warnf(fmt.Sprintf(format, args...))
 	} else {
-		logger.Warn(format)
+		logger.Warnf(format)
 	}
 }
 
-// Info logs an info message
-func Info(format string, args ...interface{}) {
+// Infof logs an info message
+func Infof(format string, args ...interface{}) {
 	if len(args) > 0 {
-		logger.Info(fmt.Sprintf(format, args...))
+		logger.Infof(fmt.Sprintf(format, args...))
 	} else {
-		logger.Info(format)
+		logger.Infof(format)
 	}
 }
 
-// Debug logs a debug message
-func Debug(format string, args ...interface{}) {
+// Debugf logs a debug message
+func Debugf(format string, args ...interface{}) {
 	if len(args) > 0 {
-		logger.Debug(fmt.Sprintf(format, args...))
+		logger.Debugf(fmt.Sprintf(format, args...))
 	} else {
-		logger.Debug(format)
+		logger.Debugf(format)
 	}
 }
+

@@ -98,8 +98,8 @@ scope.1 = "onvif://www.onvif.org/location/TestLocation"
 		t.Errorf("Expected serial number 1234567890, got %s", cfg.SerialNum)
 	}
 
-	if cfg.HardwareId != "HW123" {
-		t.Errorf("Expected hardware ID HW123, got %s", cfg.HardwareId)
+	if cfg.HardwareID != "HW123" {
+		t.Errorf("Expected hardware ID HW123, got %s", cfg.HardwareID)
 	}
 
 	if cfg.User != "admin" {

@@ -1,3 +1,4 @@
+// Package auth provides authentication utilities for ONVIF services.
 package auth
 
 import (
@@ -33,7 +34,7 @@ func (s *ServiceContext) ValidateUsernameToken(token UsernameToken) bool {
 
 	// Check if the username matches
 	if token.Username != s.Username {
-		logger.Warn("Username mismatch: expected %s, got %s", s.Username, token.Username)
+		logger.Warnf("Username mismatch: expected %s, got %s", s.Username, token.Username)
 		return false
 	}
 
@@ -42,7 +43,7 @@ func (s *ServiceContext) ValidateUsernameToken(token UsernameToken) bool {
 		if token.Password == s.Password {
 			return true
 		}
-		logger.Warn("Password mismatch")
+		logger.Warnf("Password mismatch")
 		return false
 	}
 
@@ -51,7 +52,7 @@ func (s *ServiceContext) ValidateUsernameToken(token UsernameToken) bool {
 		// Decode the nonce from base64
 		nonce, err := base64.StdEncoding.DecodeString(token.Nonce)
 		if err != nil {
-			logger.Warn("Failed to decode nonce: %v", err)
+			logger.Warnf("Failed to decode nonce: %v", err)
 			return false
 		}
 
@@ -67,7 +68,7 @@ func (s *ServiceContext) ValidateUsernameToken(token UsernameToken) bool {
 		if token.Password == digest {
 			return true
 		}
-		logger.Warn("Password digest mismatch")
+		logger.Warnf("Password digest mismatch")
 		return false
 	}
 
@@ -131,7 +132,7 @@ func ValidateNonceTimestamp(created string, maxAgeSeconds int) bool {
 	// Parse the timestamp
 	createdTime, err := time.Parse(time.RFC3339, created)
 	if err != nil {
-		logger.Warn("Failed to parse created timestamp: %v", err)
+		logger.Warnf("Failed to parse created timestamp: %v", err)
 		return false
 	}
 
@@ -139,7 +140,7 @@ func ValidateNonceTimestamp(created string, maxAgeSeconds int) bool {
 	now := time.Now()
 	diff := now.Sub(createdTime)
 	if diff.Seconds() > float64(maxAgeSeconds) {
-		logger.Warn("Nonce timestamp too old: %v", diff)
+		logger.Warnf("Nonce timestamp too old: %v", diff)
 		return false
 	}
 

@@ -1,3 +1,4 @@
+// Package server provides ONVIF server implementations.
 package server
 
 import (
@@ -23,10 +24,10 @@ func StartNotificationServer(cfg *config.ServiceContext) error {
 
 	// Start the HTTP server
 	addr := fmt.Sprintf(":%d", cfg.NotificationPort)
-	logger.Info("Starting notification server on port %d", cfg.NotificationPort)
+	logger.Infof("Starting notification server on port %d", cfg.NotificationPort)
 	err := http.ListenAndServe(addr, nil)
 	if err != nil {
-		logger.Fatal("Failed to start notification server: %v", err)
+		logger.Fatalf("Failed to start notification server: %v", err)
 	}
 	return nil
 }
@@ -36,11 +37,11 @@ func handleNotificationRequest(w http.ResponseWriter, r *http.Request, cfg *conf
 	// Read request using shared utility
 	request, err := utils.ReadSOAPRequest(r, "notification")
 	if err != nil {
-		logger.Warn("%v", err)
+		logger.Warnf("%v", err)
 		http.Error(w, "Failed to read request", http.StatusBadRequest)
 		return
 	}
-	logger.Debug("Notification request: %s", request)
+	logger.Debugf("Notification request: %s", request)
 
 	// Set response headers using shared utility
 	utils.SetSOAPHeaders(w)
@@ -50,23 +51,33 @@ func handleNotificationRequest(w http.ResponseWriter, r *http.Request, cfg *conf
 	case strings.Contains(request, "Subscribe"):
 		// Handle subscribe request
 		response := generateSubscribeResponse()
-		fmt.Fprint(w, response)
+		if _, err := fmt.Fprint(w, response); err != nil {
+			logger.Errorf("Failed to write subscribe response: %v", err)
+		}
 	case strings.Contains(request, "Unsubscribe"):
 		// Handle unsubscribe request
 		response := generateUnsubscribeResponse()
-		fmt.Fprint(w, response)
+		if _, err := fmt.Fprint(w, response); err != nil {
+			logger.Errorf("Failed to write unsubscribe response: %v", err)
+		}
 	case strings.Contains(request, "Renew"):
 		// Handle renew request
 		response := generateRenewResponse()
-		fmt.Fprint(w, response)
+		if _, err := fmt.Fprint(w, response); err != nil {
+			logger.Errorf("Failed to write renew response: %v", err)
+		}
 	case strings.Contains(request, "PullMessages"):
 		// Handle pull messages request
 		response := generatePullMessagesResponse(cfg)
-		fmt.Fprint(w, response)
+		if _, err := fmt.Fprint(w, response); err != nil {
+			logger.Errorf("Failed to write pull messages response: %v", err)
+		}
 	default:
 		// Send a generic response
 		response := utils.GenerateGenericResponse()
-		fmt.Fprint(w, response)
+		if _, err := fmt.Fprint(w, response); err != nil {
+			logger.Errorf("Failed to write generic response: %v", err)
+		}
 	}
 }
 
@@ -147,7 +158,7 @@ func generateRenewResponse() string {
 }
 
 // generatePullMessagesResponse generates a notification pull messages response
-func generatePullMessagesResponse(cfg *config.ServiceContext) string {
+func generatePullMessagesResponse(_ *config.ServiceContext) string {
 	// Read the PullMessages template
 	template := `<?xml version="1.0" encoding="UTF-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope"

@@ -1,3 +1,4 @@
+// Package media provides ONVIF Media service implementation.
 package media
 
 import (

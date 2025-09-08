@@ -1,3 +1,4 @@
+// Package utils provides utility functions for ONVIF services.
 package utils
 
 import (
@@ -27,7 +28,9 @@ func ProcessServiceTemplate(w http.ResponseWriter, serviceName, methodName strin
 	}
 
 	// Write response
-	w.Write([]byte(response))
+	if _, err := w.Write([]byte(response)); err != nil {
+		return fmt.Errorf("failed to write response: %v", err)
+	}
 	return nil
 }
 

@@ -1,3 +1,4 @@
+// Package main provides the ONVIF server application entry point.
 package main
 
 import (
@@ -18,14 +19,14 @@ func main() {
 	// Load configuration
 	cfg, err := config.LoadConfig("internal/config/onvif_simple_server.conf")
 	if err != nil {
-		logger.Fatal("Failed to load config: %v", err)
+		logger.Fatalf("Failed to load config: %v", err)
 	}
 
 	// Start integrated ONVIF HTTP server
 	go func() {
 		err := server.StartHTTPServer(cfg)
 		if err != nil {
-			logger.Fatal("ONVIF HTTP server error: %v", err)
+			logger.Fatalf("ONVIF HTTP server error: %v", err)
 		}
 	}()
 
@@ -33,7 +34,7 @@ func main() {
 	go func() {
 		err := server.StartNotificationServer(cfg)
 		if err != nil {
-			logger.Fatal("Notification server error: %v", err)
+			logger.Fatalf("Notification server error: %v", err)
 		}
 	}()
 
@@ -41,7 +42,7 @@ func main() {
 	go func() {
 		err := server.StartWSDServer(cfg)
 		if err != nil {
-			logger.Fatal("WSD server error: %v", err)
+			logger.Fatalf("WSD server error: %v", err)
 		}
 	}()
 
@@ -50,6 +51,6 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 
-	logger.Info("Shutting down servers...")
+	logger.Infof("Shutting down servers...")
 	time.Sleep(1 * time.Second)
 }

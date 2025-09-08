@@ -1,3 +1,4 @@
+// Package deviceio provides ONVIF Device I/O service implementation.
 package deviceio
 
 import (
