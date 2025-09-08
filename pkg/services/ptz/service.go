@@ -11,11 +11,11 @@ import (
 // ServiceContext holds the configuration and state for the PTZ service
 type ServiceContext struct {
 	Port     int
-	PTZNodes []PTZNode
+	PTZNodes []Node
 }
 
-// PTZNode represents a PTZ node configuration
-type PTZNode struct {
+// Node represents a PTZ node configuration
+type Node struct {
 	Name    string
 	Token   string
 	PTZType string // "relative", "absolute", or "continuous"
@@ -28,7 +28,7 @@ type PTZNode struct {
 }
 
 // createNodeElement creates an XML element for a PTZ node
-func (s *ServiceContext) createNodeElement(node PTZNode) string {
+func (s *ServiceContext) createNodeElement(node Node) string {
 	// Create node element
 	nodeElement := fmt.Sprintf(`
                 <tptz:PTZNode token="%s">

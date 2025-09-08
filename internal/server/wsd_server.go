@@ -32,10 +32,15 @@ const (
 
 	// ActionHello is the WS-Discovery Hello action
 	ActionHello        = "http://schemas.xmlsoap.org/ws/2005/04/discovery/Hello"
+	// ActionBye is the WS-Discovery Bye action
 	ActionBye          = "http://schemas.xmlsoap.org/ws/2005/04/discovery/Bye"
+	// ActionProbe is the WS-Discovery Probe action
 	ActionProbe        = "http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe"
+	// ActionProbeMatch is the WS-Discovery ProbeMatches action
 	ActionProbeMatch   = "http://schemas.xmlsoap.org/ws/2005/04/discovery/ProbeMatches"
+	// ActionResolve is the WS-Discovery Resolve action
 	ActionResolve      = "http://schemas.xmlsoap.org/ws/2005/04/discovery/Resolve"
+	// ActionResolveMatch is the WS-Discovery ResolveMatches action
 	ActionResolveMatch = "http://schemas.xmlsoap.org/ws/2005/04/discovery/ResolveMatches"
 )
 

@@ -431,10 +431,10 @@ func convertMediaProfiles(configProfiles []config.StreamProfile) []media.Profile
 	return mediaProfiles
 }
 
-// convertPTZNodes converts config.PTZNode to ptz.PTZNode
-func convertPTZNodes(configPTZNode config.PTZNode) []ptz.PTZNode {
+// convertPTZNodes converts config.PTZNode to ptz.Node
+func convertPTZNodes(configPTZNode config.PTZNode) []ptz.Node {
 	// For now, we're creating a single PTZ node from the config
-	ptzNode := ptz.PTZNode{
+	ptzNode := ptz.Node{
 		Name:    "PTZ Node",
 		Token:   "PTZToken",
 		PTZType: "PanTiltZoom",
@@ -445,7 +445,7 @@ func convertPTZNodes(configPTZNode config.PTZNode) []ptz.PTZNode {
 		MinZoom: configPTZNode.MinStepZ,
 		MaxZoom: configPTZNode.MaxStepZ,
 	}
-	return []ptz.PTZNode{ptzNode}
+	return []ptz.Node{ptzNode}
 }
 
 // convertEvents converts config.Event to events.Event

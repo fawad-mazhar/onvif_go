@@ -13,6 +13,7 @@ import (
 )
 
 const (
+	// MaxSubscriptions defines the maximum number of concurrent event subscriptions
 	MaxSubscriptions = 16
 	// DefaultPullPointTimeout is the default timeout for pull point subscriptions
 	DefaultPullPointTimeout = 60 * time.Second

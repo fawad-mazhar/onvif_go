@@ -107,19 +107,23 @@ type Event struct {
 type StreamType int
 
 const (
-	// VIDEO_NONE represents no video stream
-	VIDEO_NONE StreamType = iota
+	// VideoNone represents no video stream
+	VideoNone StreamType = iota
+	// JPEG represents JPEG video stream
 	JPEG
+	// MPEG4 represents MPEG4 video stream
 	MPEG4
+	// H264 represents H264 video stream
 	H264
+	// H265 represents H265 video stream
 	H265
 )
 
 // String returns the string representation of StreamType
 func (s StreamType) String() string {
 	switch s {
-	case VIDEO_NONE:
-		return "VIDEO_NONE"
+	case VideoNone:
+		return "VideoNone"
 	case JPEG:
 		return "JPEG"
 	case MPEG4:
@@ -137,18 +141,21 @@ func (s StreamType) String() string {
 type AudioType int
 
 const (
-	// AUDIO_NONE represents no audio stream
-	AUDIO_NONE AudioType = iota
+	// AudioNone represents no audio stream
+	AudioNone AudioType = iota
+	// G711 represents G711 audio codec
 	G711
+	// G726 represents G726 audio codec
 	G726
+	// AAC represents AAC audio codec
 	AAC
 )
 
 // String returns the string representation of AudioType
 func (a AudioType) String() string {
 	switch a {
-	case AUDIO_NONE:
-		return "AUDIO_NONE"
+	case AudioNone:
+		return "AudioNone"
 	case G711:
 		return "G711"
 	case G726:
@@ -166,6 +173,7 @@ type IdleState int
 const (
 	// IdleStateClose represents a closed idle state
 	IdleStateClose IdleState = iota
+	// IdleStateOpen represents an open idle state
 	IdleStateOpen
 )
 
@@ -175,8 +183,11 @@ type EventsEnable int
 const (
 	// EventsNone represents no events enabled
 	EventsNone EventsEnable = iota
+	// EventsPullPoint represents pull point events enabled
 	EventsPullPoint
+	// EventsBaseSubscription represents base subscription events enabled
 	EventsBaseSubscription
+	// EventsBoth represents both pull point and base subscription events enabled
 	EventsBoth
 )
 
@@ -613,7 +624,7 @@ func parseStreamType(value string) StreamType {
 	case "h265":
 		return H265
 	default:
-		return VIDEO_NONE
+		return VideoNone
 	}
 }
 
@@ -627,6 +638,6 @@ func parseAudioType(value string) AudioType {
 	case "aac":
 		return AAC
 	default:
-		return AUDIO_NONE
+		return AudioNone
 	}
 }
