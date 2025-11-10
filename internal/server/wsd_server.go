@@ -31,15 +31,15 @@ const (
 	DeviceType = "tdn:NetworkVideoTransmitter"
 
 	// ActionHello is the WS-Discovery Hello action
-	ActionHello        = "http://schemas.xmlsoap.org/ws/2005/04/discovery/Hello"
+	ActionHello = "http://schemas.xmlsoap.org/ws/2005/04/discovery/Hello"
 	// ActionBye is the WS-Discovery Bye action
-	ActionBye          = "http://schemas.xmlsoap.org/ws/2005/04/discovery/Bye"
+	ActionBye = "http://schemas.xmlsoap.org/ws/2005/04/discovery/Bye"
 	// ActionProbe is the WS-Discovery Probe action
-	ActionProbe        = "http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe"
+	ActionProbe = "http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe"
 	// ActionProbeMatch is the WS-Discovery ProbeMatches action
-	ActionProbeMatch   = "http://schemas.xmlsoap.org/ws/2005/04/discovery/ProbeMatches"
+	ActionProbeMatch = "http://schemas.xmlsoap.org/ws/2005/04/discovery/ProbeMatches"
 	// ActionResolve is the WS-Discovery Resolve action
-	ActionResolve      = "http://schemas.xmlsoap.org/ws/2005/04/discovery/Resolve"
+	ActionResolve = "http://schemas.xmlsoap.org/ws/2005/04/discovery/Resolve"
 	// ActionResolveMatch is the WS-Discovery ResolveMatches action
 	ActionResolveMatch = "http://schemas.xmlsoap.org/ws/2005/04/discovery/ResolveMatches"
 
@@ -49,16 +49,16 @@ const (
 	// UUIDByteLength defines the length of UUID byte array
 	UUIDByteLength = 16
 	// UUID bit masks and shifts for timestamp-based generation
-	UUIDMask16Bits    = 0xFFFF
-	UUIDMask48Bits    = 0xFFFFFFFFFFFF
-	UUIDShift16Bits   = 16
-	UUIDShift32Bits   = 32
-	UUIDShift48Bits   = 48
+	UUIDMask16Bits  = 0xFFFF
+	UUIDMask48Bits  = 0xFFFFFFFFFFFF
+	UUIDShift16Bits = 16
+	UUIDShift32Bits = 32
+	UUIDShift48Bits = 48
 	// UUID version and variant bits
-	UUIDVersionMask   = 0x0F
-	UUIDVersion4      = 0x40
-	UUIDVariantMask   = 0x3F
-	UUIDVariant10     = 0x80
+	UUIDVersionMask = 0x0F
+	UUIDVersion4    = 0x40
+	UUIDVariantMask = 0x3F
+	UUIDVariant10   = 0x80
 )
 
 type WSDServer struct {
@@ -472,7 +472,7 @@ func generateUUID() string {
 	}
 
 	// Set version (4) and variant bits
-	b[6] = (b[6] & UUIDVersionMask) | UUIDVersion4 // Version 4
+	b[6] = (b[6] & UUIDVersionMask) | UUIDVersion4  // Version 4
 	b[8] = (b[8] & UUIDVariantMask) | UUIDVariant10 // Variant 10
 
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",

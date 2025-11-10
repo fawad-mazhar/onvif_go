@@ -106,7 +106,7 @@ func handleServiceError(w http.ResponseWriter, err error, actionName string) {
 }
 
 // processSOAPRequest routes SOAP requests to the appropriate service handler
-func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapAction, serviceName string, cfg *config.ServiceContext) {
+func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soapAction, serviceName string, cfg *config.ServiceContext) {
 	switch serviceName {
 	case "device_service":
 		switch {
@@ -173,6 +173,34 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapAction, serv
 				Profiles: convertMediaProfiles(cfg.Profiles),
 			}
 			handleServiceError(w, mediaService.GetProfilesHTTP(w), "Media.GetProfiles")
+		case strings.Contains(soapAction, "GetProfile"):
+			mediaService := &media.ServiceContext{
+				Port:     cfg.Port,
+				Profiles: convertMediaProfiles(cfg.Profiles),
+			}
+			handleServiceError(w, mediaService.GetProfileHTTP(w, soapRequest), "Media.GetProfile")
+		case strings.Contains(soapAction, "GetStreamUri"):
+			mediaService := &media.ServiceContext{
+				Port:     cfg.Port,
+				Profiles: convertMediaProfiles(cfg.Profiles),
+			}
+			handleServiceError(w, mediaService.GetStreamUriHTTP(w, soapRequest), "Media.GetStreamUri")
+		case strings.Contains(soapAction, "GetSnapshotUri"):
+			mediaService := &media.ServiceContext{
+				Port:     cfg.Port,
+				Profiles: convertMediaProfiles(cfg.Profiles),
+			}
+			handleServiceError(w, mediaService.GetSnapshotUriHTTP(w, soapRequest), "Media.GetSnapshotUri")
+		case strings.Contains(soapAction, "CreateProfile"):
+			mediaService := &media.ServiceContext{
+				Port: cfg.Port,
+			}
+			handleServiceError(w, mediaService.CreateProfileHTTP(w), "Media.CreateProfile")
+		case strings.Contains(soapAction, "DeleteProfile"):
+			mediaService := &media.ServiceContext{
+				Port: cfg.Port,
+			}
+			handleServiceError(w, mediaService.DeleteProfileHTTP(w), "Media.DeleteProfile")
 		default:
 			handleUnsupportedSOAPAction(w, soapAction)
 		}
@@ -365,7 +393,7 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 		}
 
 		// Route the request to the appropriate service handler
-		processSOAPRequest(w, r, soapAction, serviceName, cfg)
+		processSOAPRequest(w, r, soapRequest, soapAction, serviceName, cfg)
 	}
 }
 

@@ -131,6 +131,53 @@ func GenerateGenericResponse() string {
 </SOAP-ENV:Envelope>`
 }
 
+// ExtractSOAPElement extracts the content of an XML element from a SOAP request
+func ExtractSOAPElement(soapRequest, elementName string) string {
+	// Look for opening tag with or without namespace
+	openTag1 := "<" + elementName + ">"
+	openTag2 := "<" + elementName + " "
+	closeTag := "</" + elementName + ">"
+
+	// Try to find the opening tag
+	startIdx := strings.Index(soapRequest, openTag1)
+	if startIdx == -1 {
+		startIdx = strings.Index(soapRequest, openTag2)
+		if startIdx == -1 {
+			// Try with common namespaces
+			for _, ns := range []string{"trt:", "tt:", "ter:", "tns1:"} {
+				openTag := "<" + ns + elementName + ">"
+				startIdx = strings.Index(soapRequest, openTag)
+				if startIdx != -1 {
+					startIdx += len(openTag)
+					closeTag = "</" + ns + elementName + ">"
+					break
+				}
+			}
+			if startIdx == -1 {
+				return ""
+			}
+		} else {
+			// Find the end of the opening tag
+			endOfTag := strings.Index(soapRequest[startIdx:], ">")
+			if endOfTag == -1 {
+				return ""
+			}
+			startIdx += endOfTag + 1
+		}
+	} else {
+		startIdx += len(openTag1)
+	}
+
+	// Find the closing tag
+	endIdx := strings.Index(soapRequest[startIdx:], closeTag)
+	if endIdx == -1 {
+		return ""
+	}
+
+	// Extract and return the content
+	return strings.TrimSpace(soapRequest[startIdx : startIdx+endIdx])
+}
+
 // ProcessCollectionServiceTemplate processes a service template with a collection of items
 // T is the type of items in the collection
 // items: the collection of items to process

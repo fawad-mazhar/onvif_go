@@ -83,3 +83,133 @@ func (s *ServiceContext) GetProfilesHTTP(w http.ResponseWriter) error {
 	// Process template and write response
 	return utils.ProcessServiceTemplate(w, "media", "GetProfiles", replacements)
 }
+
+// GetProfileHTTP handles the GetProfile ONVIF media service method via HTTP
+func (s *ServiceContext) GetProfileHTTP(w http.ResponseWriter, soapRequest string) error {
+	// Extract ProfileToken from SOAP request
+	profileToken := utils.ExtractSOAPElement(soapRequest, "ProfileToken")
+	if profileToken == "" {
+		return sendMediaFault(w, "Sender", "ter:InvalidArgVal", "ter:NoProfile", "No profile", "The requested profile token does not exist")
+	}
+
+	// Find the profile by token
+	profile, token := s.findProfileByToken(profileToken)
+	if profile == nil {
+		return sendMediaFault(w, "Sender", "ter:InvalidArgVal", "ter:NoProfile", "No profile", "The requested profile token does not exist")
+	}
+
+	// Create the full profile XML with all configurations
+	profileXML := s.createProfileElement(*profile, token)
+
+	// Create replacements map for template processing
+	replacements := map[string]string{
+		"%PROFILE%": profileXML,
+	}
+
+	// Process template and write response
+	return utils.ProcessServiceTemplate(w, "media", "GetProfile", replacements)
+}
+
+// findProfileByToken finds a profile by its token or name and returns both profile and token
+func (s *ServiceContext) findProfileByToken(profileToken string) (*Profile, string) {
+	for i, p := range s.Profiles {
+		token := fmt.Sprintf("Profile%d", i)
+		if token == profileToken || p.Name == profileToken {
+			return &p, token
+		}
+	}
+	return nil, ""
+}
+
+// getMediaUriHTTP is a generic helper for GetStreamUri and GetSnapshotUri
+func (s *ServiceContext) getMediaUriHTTP(w http.ResponseWriter, soapRequest, methodName, urlField, placeholder, errorMsg string) error {
+	// Extract ProfileToken from SOAP request
+	profileToken := utils.ExtractSOAPElement(soapRequest, "ProfileToken")
+	if profileToken == "" {
+		return sendMediaFault(w, "Sender", "ter:InvalidArgVal", "ter:NoProfile", "No profile", "The requested profile does not exist")
+	}
+
+	// Find the profile by token
+	profile, _ := s.findProfileByToken(profileToken)
+	if profile == nil {
+		return sendMediaFault(w, "Sender", "ter:InvalidArgVal", "ter:NoProfile", "No profile", "The requested profile does not exist")
+	}
+
+	// Get the URL field value using reflection-free approach
+	var url string
+	switch urlField {
+	case "URL":
+		url = profile.URL
+	case "SnapURL":
+		url = profile.SnapURL
+	}
+
+	// Check if URL is configured
+	if url == "" {
+		return sendMediaFault(w, "Receiver", "ter:Action", "ter:IncompleteConfiguration", "Incomplete configuration", errorMsg)
+	}
+
+	// Create replacements map for template processing
+	replacements := map[string]string{
+		placeholder: url,
+	}
+
+	// Process template and write response
+	return utils.ProcessServiceTemplate(w, "media", methodName, replacements)
+}
+
+// GetStreamUriHTTP handles the GetStreamUri ONVIF media service method via HTTP
+func (s *ServiceContext) GetStreamUriHTTP(w http.ResponseWriter, soapRequest string) error {
+	return s.getMediaUriHTTP(w, soapRequest, "GetStreamUri", "URL", "%STREAM_URL%",
+		"The specified media profile does not contain either unused sources or encoder configurations without a corresponding source")
+}
+
+// GetSnapshotUriHTTP handles the GetSnapshotUri ONVIF media service method via HTTP
+func (s *ServiceContext) GetSnapshotUriHTTP(w http.ResponseWriter, soapRequest string) error {
+	return s.getMediaUriHTTP(w, soapRequest, "GetSnapshotUri", "SnapURL", "%SNAPSHOT_URL%",
+		"The specified media profile does not contain either a reference to a video encoder configuration or a reference to a video source configuration")
+}
+
+// CreateProfileHTTP handles the CreateProfile ONVIF media service method via HTTP
+// Returns a fault as profile creation is not supported (fixed profiles only)
+func (s *ServiceContext) CreateProfileHTTP(w http.ResponseWriter) error {
+	return sendMediaFault(w, "Receiver", "ter:Action", "ter:MaxNVTProfiles", "Max profile number reached", "The maximum number of supported profiles supported by the device has been reached")
+}
+
+// DeleteProfileHTTP handles the DeleteProfile ONVIF media service method via HTTP
+// Returns a fault as profile deletion is not supported (fixed profiles only)
+func (s *ServiceContext) DeleteProfileHTTP(w http.ResponseWriter) error {
+	return sendMediaFault(w, "Receiver", "ter:Action", "ter:FixedProfile", "Fixed profile", "Deletion of fixed profiles is not allowed")
+}
+
+// sendMediaFault sends a SOAP fault response for media service errors
+func sendMediaFault(w http.ResponseWriter, code, subcode, subcodeValue, reason, detail string) error {
+	w.Header().Set("Content-Type", "application/soap+xml; charset=utf-8")
+	w.WriteHeader(http.StatusInternalServerError)
+	faultXML := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope"
+                   xmlns:ter="http://www.onvif.org/ver10/error">
+    <SOAP-ENV:Body>
+        <SOAP-ENV:Fault>
+            <SOAP-ENV:Code>
+                <SOAP-ENV:Value>SOAP-ENV:%s</SOAP-ENV:Value>
+                <SOAP-ENV:Subcode>
+                    <SOAP-ENV:Value>%s</SOAP-ENV:Value>
+                    <SOAP-ENV:Subcode>
+                        <SOAP-ENV:Value>%s</SOAP-ENV:Value>
+                    </SOAP-ENV:Subcode>
+                </SOAP-ENV:Subcode>
+            </SOAP-ENV:Code>
+            <SOAP-ENV:Reason>
+                <SOAP-ENV:Text xml:lang="en">%s</SOAP-ENV:Text>
+            </SOAP-ENV:Reason>
+            <SOAP-ENV:Detail>
+                <SOAP-ENV:Text>%s</SOAP-ENV:Text>
+            </SOAP-ENV:Detail>
+        </SOAP-ENV:Fault>
+    </SOAP-ENV:Body>
+</SOAP-ENV:Envelope>`, code, subcode, subcodeValue, reason, detail)
+
+	_, err := w.Write([]byte(faultXML))
+	return err
+}

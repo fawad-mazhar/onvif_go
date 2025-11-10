@@ -10,7 +10,7 @@ This document provides a comprehensive comparison between the original C impleme
 |-----------|------------|-------------------|------------|--------|
 | **Core Infrastructure** | Complete | Complete | **100%** | ✅ |
 | **Device Service** | 11 functions | 10 functions | **91%** | ✅ |
-| **Media Service** | 39 functions | 2 functions | **5%** | ❌ |
+| **Media Service** | 39 functions | 7 functions | **18%** | ⚠️ |
 | **Media2 Service** | 30+ functions | 0 functions | **0%** | ❌ |
 | **PTZ Service** | 13 functions | 2 functions | **15%** | ⚠️ |
 | **Events Service** | 8 functions | 8 functions | **100%** | ✅ |
@@ -18,7 +18,7 @@ This document provides a comprehensive comparison between the original C impleme
 | **WS-Discovery** | 4 operations | 4 operations | **100%** | ✅ |
 | **XML Templates** | 144 files | 39 files | **27%** | ❌ |
 
-**Total Coverage: ~35%**
+**Total Coverage: ~37%**
 
 ## 🔧 Core Infrastructure Comparison
 
@@ -41,12 +41,12 @@ This document provides a comprehensive comparison between the original C impleme
 | **Core Operations** |
 | GetServiceCapabilities | ✅ | ✅ | ✅ | High |
 | GetProfiles | ✅ | ✅ | ✅ | High |
-| GetProfile | ✅ | ❌ | ❌ | High |
-| CreateProfile | ✅ | ❌ | ❌ | Medium |
-| DeleteProfile | ✅ | ❌ | ❌ | Medium |
+| GetProfile | ✅ | ✅ | ✅ | High |
+| CreateProfile | ✅ | ✅ (Fault) | ⚠️ | Medium |
+| DeleteProfile | ✅ | ✅ (Fault) | ⚠️ | Medium |
 | **Stream & Snapshot** |
-| GetStreamUri | ✅ | ❌ | ❌ | **Critical** |
-| GetSnapshotUri | ✅ | ❌ | ❌ | **Critical** |
+| GetStreamUri | ✅ | ✅ | ✅ | **Critical** |
+| GetSnapshotUri | ✅ | ✅ | ✅ | **Critical** |
 | **Video Configuration** |
 | GetVideoSources | ✅ | ❌ | ❌ | High |
 | GetVideoSourceConfigurations | ✅ | ❌ | ❌ | High |
@@ -83,7 +83,7 @@ This document provides a comprehensive comparison between the original C impleme
 | GetCompatibleAudioDecoderConfigurations | ✅ | ❌ | ❌ | Low |
 | GetCompatibleAudioOutputConfigurations | ✅ | ❌ | ❌ | Low |
 
-**Media Service Coverage: 2/39 functions = 5.1%**
+**Media Service Coverage: 7/39 functions = 17.9%**
 
 ## 🎮 PTZ Service Detailed Comparison
 
