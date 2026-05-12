@@ -57,7 +57,7 @@ func (s *ServiceContext) ValidateUsernameToken(token UsernameToken) bool {
 		}
 
 		// Create the digest according to ONVIF specification
-		// Digest = Base64(SHA1(Nonce + Created + Password))
+		// Digest = Base64( SHA1( Base64Decode(Nonce) + Created + Password ) )
 		h := sha1.New()
 		h.Write(nonce)
 		h.Write([]byte(token.Created))
