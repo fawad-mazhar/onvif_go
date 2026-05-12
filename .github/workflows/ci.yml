@@ -29,25 +29,10 @@ jobs:
 
       - name: c14n spike (smoke)
         # Validates that ucarion/c14n still parses + canonicalizes every
-        # captured fixture. The full golden-diff is activated by 0a.
+        # captured fixture.
         run: go run ./test/scripts/c14n_spike
 
-  golden-diff:
-    name: Golden diff (activated in 0a)
-    runs-on: ubuntu-latest
-    # This job is a stub until 0a lands the scrubber + Go-server
-    # integration harness. It is allowed to fail without failing CI.
-    continue-on-error: true
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Run golden_diff.sh
+      - name: Golden diff (regression gate)
+        # Enforces test/fixtures/.baseline: every op that previously
+        # passed the golden diff must still pass. New passes are allowed.
         run: bash test/scripts/golden_diff.sh

@@ -10,6 +10,7 @@ import (
 	"github.com/fawad-mazhar/onvif-go/internal/auth"
 	"github.com/fawad-mazhar/onvif-go/internal/config"
 	"github.com/fawad-mazhar/onvif-go/internal/logger"
+	xmlfault "github.com/fawad-mazhar/onvif-go/internal/xml"
 	"github.com/fawad-mazhar/onvif-go/pkg/services/device"
 	"github.com/fawad-mazhar/onvif-go/pkg/services/deviceio"
 	"github.com/fawad-mazhar/onvif-go/pkg/services/events"
@@ -29,12 +30,10 @@ const (
 	NonceMaxAgeSeconds = 300
 )
 
-// StartHTTPServer starts the integrated HTTP ONVIF server with Chi router and CORS
-func StartHTTPServer(cfg *config.ServiceContext) error {
-	// Initialize logging
-	logger.InitLogger(logger.INFO)
-
-	// Create Chi router
+// BuildRouter wires all ONVIF routes and middleware onto a Chi router,
+// returning it without starting the listener. Exposed for test harnesses
+// (see test/golden_diff_test.go).
+func BuildRouter(cfg *config.ServiceContext) chi.Router {
 	r := chi.NewRouter()
 
 	// Add middleware
@@ -88,7 +87,15 @@ func StartHTTPServer(cfg *config.ServiceContext) error {
 		}
 	})
 
-	// Start the HTTP server
+	return r
+}
+
+// StartHTTPServer builds the router and starts listening on cfg.Port.
+// Thin wrapper around BuildRouter for production main().
+func StartHTTPServer(cfg *config.ServiceContext) error {
+	logger.InitLogger(logger.INFO)
+	r := BuildRouter(cfg)
+
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	logger.Infof("Starting integrated HTTP ONVIF server on port %d", cfg.Port)
 	logger.Infof("ONVIF server listening on address: %s", addr)
@@ -279,47 +286,33 @@ func handleUnsupportedService(w http.ResponseWriter, serviceName string) {
 	sendSOAPError(w, "Unsupported service")
 }
 
-// sendSOAPError sends a SOAP fault response for errors
+// sendSOAPError emits an ONVIF-spec-compliant SOAP fault via the
+// structured xmlfault library. Byte-compatible with the C reference
+// server's send_fault() generic path.
+//
+// The fault is rendered without a known device/service address (the
+// handler layer does not currently thread the request's Host header).
+// Fault.xml's %ADDRESS%/%SERVICE% placeholders will be left empty;
+// Phase 0a's scrubber normalizes these in diff so correctness is not
+// affected, and Phase 1's handler plumbing will fill them in.
 func sendSOAPError(w http.ResponseWriter, message string) {
-	w.Header().Set("Content-Type", "application/soap+xml; charset=utf-8")
-	w.WriteHeader(http.StatusInternalServerError)
-	if _, err := fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?>
-<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:tns="http://www.onvif.org/ver10/device/wsdl">
-  <soap:Body>
-    <soap:Fault>
-      <soap:Code>
-        <soap:Value>soap:Receiver</soap:Value>
-      </soap:Code>
-      <soap:Reason>
-        <soap:Text>%s</soap:Text>
-      </soap:Reason>
-    </soap:Fault>
-  </soap:Body>
-</soap:Envelope>`, message); err != nil {
-		// Ignore write error in error handler
-		_ = err
+	if err := xmlfault.WriteFault(w, xmlfault.Fault{
+		RecSend:   "Receiver",
+		Subcode:   "ter:Action",
+		SubcodeEx: "ter:ActionFailed",
+		Reason:    "Action failed",
+		Detail:    message,
+	}); err != nil {
+		logger.Warnf("sendSOAPError: %v", err)
 	}
 }
 
-// sendSOAPAuthError sends a SOAP fault response for authentication errors
+// sendSOAPAuthError emits the standard WS-Security auth-failed fault
+// using the AuthenticationError.xml template (byte-compatible with
+// the C reference's send_authentication_error()).
 func sendSOAPAuthError(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/soap+xml; charset=utf-8")
-	w.WriteHeader(http.StatusUnauthorized)
-	if _, err := fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?>
-<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:tns="http://www.onvif.org/ver10/device/wsdl">
-  <soap:Body>
-    <soap:Fault>
-      <soap:Code>
-        <soap:Value>soap:Sender</soap:Value>
-      </soap:Code>
-      <soap:Reason>
-        <soap:Text>Authentication failed</soap:Text>
-      </soap:Reason>
-    </soap:Fault>
-  </soap:Body>
-</soap:Envelope>`); err != nil {
-		// Ignore write error in auth error handler
-		_ = err
+	if err := xmlfault.WriteAuthenticationError(w); err != nil {
+		logger.Warnf("sendSOAPAuthError: %v", err)
 	}
 }
 
