@@ -24,10 +24,23 @@ func TestScrub_Idempotent(t *testing.T) {
 	}
 }
 
-func TestScrub_HostPort(t *testing.T) {
-	in := []byte(`<a>http://127.0.0.1:8080/onvif</a><b>https://example.test:9999/x</b>`)
+func TestScrub_HostPort_PreservesPath(t *testing.T) {
+	// host:port is normalized but the path is preserved so that future
+	// service-routing bugs (e.g. wrong service in a fault's wsa5:To)
+	// still appear in the diff.
+	in := []byte(`<a>http://127.0.0.1:8080/onvif/media_service</a><b>https://example.test:9999/x</b><c>http://h:80/onvif</c>`)
 	out := Scrub(in)
-	want := []byte(`<a>http://HOSTSCRUBBED</a><b>http://HOSTSCRUBBED</b>`)
+	want := []byte(`<a>http://HOSTSCRUBBED/onvif/media_service</a><b>http://HOSTSCRUBBED/x</b><c>http://HOSTSCRUBBED/onvif</c>`)
+	if !bytes.Equal(out, want) {
+		t.Errorf("got  %s\nwant %s", out, want)
+	}
+}
+
+func TestScrub_HostOnly(t *testing.T) {
+	// URL with no path renders without the optional capture group.
+	in := []byte(`<u>http://h:80</u>`)
+	out := Scrub(in)
+	want := []byte(`<u>http://HOSTSCRUBBED</u>`)
 	if !bytes.Equal(out, want) {
 		t.Errorf("got  %s\nwant %s", out, want)
 	}
@@ -36,7 +49,7 @@ func TestScrub_HostPort(t *testing.T) {
 func TestScrub_RTSP(t *testing.T) {
 	in := []byte(`<u>rtsp://host:554/stream0</u>`)
 	out := Scrub(in)
-	want := []byte(`<u>rtsp://HOSTSCRUBBED</u>`)
+	want := []byte(`<u>rtsp://HOSTSCRUBBED/stream0</u>`)
 	if !bytes.Equal(out, want) {
 		t.Errorf("got  %s\nwant %s", out, want)
 	}
@@ -50,8 +63,8 @@ func TestScrub_PreservesAttributeURLs(t *testing.T) {
 	if !bytes.Contains(out, []byte(`xmlns:env="http://www.w3.org/2003/05/soap-envelope"`)) {
 		t.Errorf("xmlns URI was scrubbed: %s", out)
 	}
-	if !bytes.Contains(out, []byte(`>http://HOSTSCRUBBED</a>`)) {
-		t.Errorf("element-content URL not scrubbed: %s", out)
+	if !bytes.Contains(out, []byte(`>http://HOSTSCRUBBED/onvif</a>`)) {
+		t.Errorf("element-content URL not scrubbed correctly: %s", out)
 	}
 }
 

@@ -48,13 +48,17 @@ func stripElementRE(name string) []*regexp.Regexp {
 }
 
 var (
-	// Only scrub URLs that appear as element content (between > and <)
-	// or inside the literally-quoted MessageID UUID form. This
-	// deliberately skips URLs in attribute values (xmlns namespace
-	// declarations, wsa:Action URIs) which are stable and must not
-	// be rewritten.
-	reHTTPInText = regexp.MustCompile(`>https?://[^<"\s]+`)
-	reRTSPInText = regexp.MustCompile(`>rtsp://[^<"\s]+`)
+	// Only scrub URLs that appear as element content (between > and <).
+	// Skips URLs in attribute values (xmlns namespace declarations,
+	// wsa:Action URIs) which are stable and must not be rewritten.
+	//
+	// The host:port portion is replaced with HOSTSCRUBBED but the
+	// path is preserved, so a future bug that emits the wrong service
+	// path (e.g. /onvif/device_service vs /onvif/media_service in a
+	// fault's wsa5:To) still shows up in the diff. Group $1 captures
+	// the path including the leading slash, or "" if absent.
+	reHTTPInText = regexp.MustCompile(`>https?://[^/<"\s]+(/[^<"\s]*)?`)
+	reRTSPInText = regexp.MustCompile(`>rtsp://[^/<"\s]+(/[^<"\s]*)?`)
 
 	reXMLProlog = regexp.MustCompile(`^\s*<\?xml[^?]*\?>\s*`)
 
@@ -73,8 +77,8 @@ func Scrub(data []byte) []byte {
 	// Preserve the leading '>' so the XML structure stays valid. Use
 	// plain text tokens (no angle brackets) so the token cannot itself
 	// become invalid XML in any future placement.
-	data = reHTTPInText.ReplaceAll(data, []byte(">http://HOSTSCRUBBED"))
-	data = reRTSPInText.ReplaceAll(data, []byte(">rtsp://HOSTSCRUBBED"))
+	data = reHTTPInText.ReplaceAll(data, []byte(">http://HOSTSCRUBBED$1"))
+	data = reRTSPInText.ReplaceAll(data, []byte(">rtsp://HOSTSCRUBBED$1"))
 
 	data = replaceElement(data, reUTCDateTime, "UTCDateTime", "UTCSCRUBBED")
 	data = replaceElement(data, reLocalDT, "LocalDateTime", "LOCALSCRUBBED")

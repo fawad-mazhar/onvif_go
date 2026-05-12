@@ -4,11 +4,10 @@ package auth
 import (
 	"crypto/sha1"
 	"encoding/base64"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/fawad-mazhar/onvif-go/internal/logger"
+	xmlpkg "github.com/fawad-mazhar/onvif-go/internal/xml"
 )
 
 // UsernameToken represents the WS-Security username token
@@ -75,51 +74,21 @@ func (s *ServiceContext) ValidateUsernameToken(token UsernameToken) bool {
 	return false
 }
 
-// ParseSOAPHeader parses the SOAP header to extract username token information
+// ParseSOAPHeader extracts the WS-Security UsernameToken fields from a
+// SOAP envelope using a namespace-aware XML parser. Tolerates any prefix
+// (wsse:, u:, etc.) and matches local-names case-sensitively per the WSS
+// schema.
 func ParseSOAPHeader(soapHeader string) (UsernameToken, error) {
-	var token UsernameToken
-
-	// Extract username
-	usernameStart := strings.Index(soapHeader, "<Username>")
-	if usernameStart == -1 {
-		return token, fmt.Errorf("username not found in SOAP header")
+	t, err := xmlpkg.ExtractUsernameToken([]byte(soapHeader))
+	if err != nil {
+		return UsernameToken{}, err
 	}
-	usernameEnd := strings.Index(soapHeader, "</Username>")
-	if usernameEnd == -1 || usernameEnd <= usernameStart {
-		return token, fmt.Errorf("invalid username in SOAP header")
-	}
-	token.Username = soapHeader[usernameStart+10 : usernameEnd]
-
-	// Extract password
-	passwordStart := strings.Index(soapHeader, "<Password>")
-	if passwordStart == -1 {
-		return token, fmt.Errorf("password not found in SOAP header")
-	}
-	passwordEnd := strings.Index(soapHeader, "</Password>")
-	if passwordEnd == -1 || passwordEnd <= passwordStart {
-		return token, fmt.Errorf("invalid password in SOAP header")
-	}
-	token.Password = soapHeader[passwordStart+10 : passwordEnd]
-
-	// Extract nonce (if present)
-	nonceStart := strings.Index(soapHeader, "<Nonce>")
-	if nonceStart != -1 {
-		nonceEnd := strings.Index(soapHeader, "</Nonce>")
-		if nonceEnd != -1 && nonceEnd > nonceStart {
-			token.Nonce = soapHeader[nonceStart+7 : nonceEnd]
-		}
-	}
-
-	// Extract created timestamp (if present)
-	createdStart := strings.Index(soapHeader, "<Created>")
-	if createdStart != -1 {
-		createdEnd := strings.Index(soapHeader, "</Created>")
-		if createdEnd != -1 && createdEnd > createdStart {
-			token.Created = soapHeader[createdStart+9 : createdEnd]
-		}
-	}
-
-	return token, nil
+	return UsernameToken{
+		Username: t.Username,
+		Password: t.Password,
+		Nonce:    t.Nonce,
+		Created:  t.Created,
+	}, nil
 }
 
 // ValidateNonceTimestamp validates the nonce timestamp to prevent replay attacks

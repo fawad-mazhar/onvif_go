@@ -42,29 +42,25 @@ digest tokens don't exercise this path.
 
 ---
 
-### G-003 — Brittle SOAP header parsing
+### ~~G-003 — Brittle SOAP header parsing~~ (FIXED)
 
-**Summary**: `auth.ParseSOAPHeader` uses `strings.Index("<Username>", ...)`
-which doesn't match the canonical `<wsse:Username>` form that real
-ONVIF clients send. Latent bug; doesn't affect response capture.
-
-**Fix window**: Phase 0a (this PR's follow-up) or Phase 1 — switch
-to a real XML parser once the fault library is in use.
+**Resolved 2026-05-12** in commit following Phase 0a. `auth.ParseSOAPHeader`
+now delegates to `internal/xml.ExtractUsernameToken`, which uses
+`encoding/xml` namespace-aware decoding. Tolerates any prefix
+(`wsse:`, `u:`, etc.).
 
 ---
 
-### G-004 — `parseSOAPAction` doesn't match `<s:Body>`
+### ~~G-004 — `parseSOAPAction` doesn't match `<s:Body>`~~ (FIXED)
 
-**Summary**: `parseSOAPAction` in `onvif_server.go:403-405` only
-recognizes `<soap:Body>` and `<SOAP-ENV:Body>`. The fixture SOAP
-requests use `<s:Body>` (a legitimate alias), so every fixture POST
-currently returns a fault. Visible in the `TestGoldenDiff` log.
+**Resolved 2026-05-12** in commit following Phase 0a. `parseSOAPAction`
+now delegates to `internal/xml.ExtractBodyAction`, which uses
+`encoding/xml` namespace-aware decoding. Accepts every SOAP 1.2
+envelope prefix (`s:`, `soap:`, `SOAP-ENV:`, `env:`).
 
-**Impact**: 0/21 golden diffs currently pass. After fixing this gap,
-the baseline should be regenerable with more passes.
-
-**Fix window**: Phase 0a follow-up or Phase 1 — rewrite with a real
-XML namespace-aware parser or a broader prefix alternation.
+**Aftermath**: handler routing now works for every captured fixture,
+but Go handler outputs still differ from C templates byte-for-byte.
+The gap shifted from parsing to handler output; tracked as G-008.
 
 ---
 
@@ -101,6 +97,33 @@ file keeps changing.
 **Fix window**: Phase 0a follow-up — either add `libfaketime` to the
 C Dockerfile and pin the clock at `2026-01-01T00:00:00Z`, or
 post-process captured fixtures to blank out the volatile fields.
+
+---
+
+### G-008 — Go handler templates diverge from C reference (umbrella)
+
+**Summary**: After G-003/G-004 fixes, every captured request now routes
+through the appropriate Go handler. None of the 21 captured fixtures
+match the C reference byte-for-byte yet — Go's templates under
+`service_files/<svc>/` predate the parity effort and were authored
+independently of the C source's `<svc>_service_files/`.
+
+**Examples** (from `TestGoldenDiff` summary):
+- `device_service/GetUsers`        Go 252 vs C 223 bytes canonical
+- `device_service/GetCapabilities` Go 3081 vs C 2523 bytes
+- `media_service/GetProfiles`      Go 329 vs C 8304 bytes (missing the
+  per-profile composer entirely)
+
+**Fix window**: Distributed across phases 1-5 of the parity plan.
+Each phase brings one or two services to byte-identical parity by
+either (a) replacing `service_files/<svc>/<op>.xml` with the C
+verbatim template, or (b) introducing the C-style header/middle/footer
+composer for list ops.
+
+**Regression-gate behaviour**: `test/fixtures/.baseline` records the
+set of currently-passing ops. As each phase lands, the baseline grows;
+any commit that drops an op from passing fails CI. The baseline is
+empty today (0/21).
 
 ---
 

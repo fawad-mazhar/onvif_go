@@ -390,57 +390,17 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 	}
 }
 
-// parseSOAPAction extracts the SOAP action from the request
+// parseSOAPAction extracts the local-name of the first child element
+// inside soap:Body from a SOAP request. Delegates to the namespace-aware
+// xmlfault.ExtractBodyAction so any envelope prefix (s:, soap:,
+// SOAP-ENV:, env:) is accepted. Returns "" if extraction fails.
 func parseSOAPAction(soapRequest string) string {
-	// Look for the SOAP action in the request
-	actionStart := strings.Index(soapRequest, "<soap:Body>")
-	if actionStart == -1 {
-		actionStart = strings.Index(soapRequest, "<SOAP-ENV:Body>")
-		if actionStart == -1 {
-			return ""
-		}
-		actionStart += len("<SOAP-ENV:Body>")
-	} else {
-		actionStart += len("<soap:Body>")
-	}
-
-	// Skip whitespace and newlines
-	for actionStart < len(soapRequest) && (soapRequest[actionStart] == ' ' ||
-		soapRequest[actionStart] == '\n' || soapRequest[actionStart] == '\r' ||
-		soapRequest[actionStart] == '\t') {
-		actionStart++
-	}
-
-	// Find the next opening tag
-	if actionStart >= len(soapRequest) || soapRequest[actionStart] != '<' {
+	action, err := xmlfault.ExtractBodyAction([]byte(soapRequest))
+	if err != nil {
+		logger.Debugf("ExtractBodyAction: %v", err)
 		return ""
 	}
-
-	actionEnd := strings.Index(soapRequest[actionStart:], ">")
-	if actionEnd == -1 {
-		return ""
-	}
-
-	// Extract the tag name
-	tag := soapRequest[actionStart+1 : actionStart+actionEnd]
-
-	// Remove attributes if any
-	if strings.Contains(tag, " ") {
-		tag = tag[:strings.Index(tag, " ")]
-	}
-
-	// Remove namespace prefix for comparison
-	if strings.Contains(tag, ":") {
-		parts := strings.Split(tag, ":")
-		if len(parts) > 1 {
-			tag = parts[len(parts)-1]
-		}
-	}
-
-	// Handle self-closing tags
-	tag = strings.TrimSuffix(tag, "/")
-
-	return tag
+	return action
 }
 
 // convertMediaProfiles converts config.StreamProfile to media.Profile
