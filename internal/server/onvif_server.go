@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/fawad-mazhar/onvif-go/internal/auth"
@@ -117,12 +116,12 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 	switch serviceName {
 	case "device_service":
 		switch {
-		case strings.Contains(soapAction, "GetServices"):
+		case soapAction == "GetServices":
 			deviceService := &device.ServiceContext{
 				Port: cfg.Port,
 			}
 			handleServiceError(w, deviceService.GetServicesHTTP(w), "GetServices")
-		case strings.Contains(soapAction, "GetDeviceInformation"):
+		case soapAction == "GetDeviceInformation":
 			deviceService := &device.ServiceContext{
 				Port:         cfg.Port,
 				Manufacturer: cfg.Manufacturer,
@@ -135,33 +134,33 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 				Media2Enable: cfg.AdvEnableMedia2 == 1,
 			}
 			handleServiceError(w, deviceService.GetDeviceInformationHTTP(w), "GetDeviceInformation")
-		case strings.Contains(soapAction, "GetCapabilities"):
+		case soapAction == "GetCapabilities":
 			deviceService := &device.ServiceContext{
 				Port: cfg.Port,
 			}
 			handleServiceError(w, deviceService.GetCapabilitiesHTTP(w), "GetCapabilities")
-		case strings.Contains(soapAction, "GetScopes"):
+		case soapAction == "GetScopes":
 			deviceService := &device.ServiceContext{
 				Port:   cfg.Port,
 				Scopes: cfg.Scopes,
 			}
 			handleServiceError(w, deviceService.GetScopesHTTP(w), "GetScopes")
-		case strings.Contains(soapAction, "SystemReboot"):
+		case soapAction == "SystemReboot":
 			deviceService := &device.ServiceContext{}
 			handleServiceError(w, deviceService.SystemRebootHTTP(w), "SystemReboot")
-		case strings.Contains(soapAction, "GetSystemDateAndTime"):
+		case soapAction == "GetSystemDateAndTime":
 			deviceService := &device.ServiceContext{}
 			handleServiceError(w, deviceService.GetSystemDateAndTimeHTTP(w), "GetSystemDateAndTime")
-		case strings.Contains(soapAction, "GetUsers"):
+		case soapAction == "GetUsers":
 			deviceService := &device.ServiceContext{}
 			handleServiceError(w, deviceService.GetUsersHTTP(w), "GetUsers")
-		case strings.Contains(soapAction, "GetWsdlUrl"):
+		case soapAction == "GetWsdlUrl":
 			deviceService := &device.ServiceContext{}
 			handleServiceError(w, deviceService.GetWsdlURLHTTP(w), "GetWsdlURL")
-		case strings.Contains(soapAction, "GetNetworkInterfaces"):
+		case soapAction == "GetNetworkInterfaces":
 			deviceService := &device.ServiceContext{}
 			handleServiceError(w, deviceService.GetNetworkInterfacesHTTP(w), "GetNetworkInterfaces")
-		case strings.Contains(soapAction, "GetDiscoveryMode"):
+		case soapAction == "GetDiscoveryMode":
 			deviceService := &device.ServiceContext{}
 			handleServiceError(w, deviceService.GetDiscoveryModeHTTP(w), "GetDiscoveryMode")
 		default:
@@ -177,41 +176,41 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 			soapAction == "SetAudioEncoderConfiguration" ||
 			soapAction == "SetAudioOutputConfiguration"):
 			sendSOAPError(w, "Action failed")
-		case strings.Contains(soapAction, "GetServiceCapabilities"):
+		case soapAction == "GetServiceCapabilities":
 			mediaService := &media.ServiceContext{
 				Port: cfg.Port,
 			}
 			handleServiceError(w, mediaService.GetServiceCapabilitiesHTTP(w), "Media.GetServiceCapabilities")
-		case strings.Contains(soapAction, "GetProfiles"):
+		case soapAction == "GetProfiles":
 			mediaService := &media.ServiceContext{
 				Port:     cfg.Port,
 				Profiles: convertMediaProfiles(cfg.Profiles),
 			}
 			handleServiceError(w, mediaService.GetProfilesHTTP(w), "Media.GetProfiles")
-		case strings.Contains(soapAction, "GetProfile"):
+		case soapAction == "GetProfile":
 			mediaService := &media.ServiceContext{
 				Port:     cfg.Port,
 				Profiles: convertMediaProfiles(cfg.Profiles),
 			}
 			handleServiceError(w, mediaService.GetProfileHTTP(w, soapRequest), "Media.GetProfile")
-		case strings.Contains(soapAction, "GetStreamUri"):
+		case soapAction == "GetStreamUri":
 			mediaService := &media.ServiceContext{
 				Port:     cfg.Port,
 				Profiles: convertMediaProfiles(cfg.Profiles),
 			}
 			handleServiceError(w, mediaService.GetStreamUriHTTP(w, soapRequest), "Media.GetStreamUri")
-		case strings.Contains(soapAction, "GetSnapshotUri"):
+		case soapAction == "GetSnapshotUri":
 			mediaService := &media.ServiceContext{
 				Port:     cfg.Port,
 				Profiles: convertMediaProfiles(cfg.Profiles),
 			}
 			handleServiceError(w, mediaService.GetSnapshotUriHTTP(w, soapRequest), "Media.GetSnapshotUri")
-		case strings.Contains(soapAction, "CreateProfile"):
+		case soapAction == "CreateProfile":
 			mediaService := &media.ServiceContext{
 				Port: cfg.Port,
 			}
 			handleServiceError(w, mediaService.CreateProfileHTTP(w), "Media.CreateProfile")
-		case strings.Contains(soapAction, "DeleteProfile"):
+		case soapAction == "DeleteProfile":
 			mediaService := &media.ServiceContext{
 				Port: cfg.Port,
 			}
@@ -221,12 +220,12 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 		}
 	case "ptz_service":
 		switch {
-		case strings.Contains(soapAction, "GetServiceCapabilities"):
+		case soapAction == "GetServiceCapabilities":
 			ptzService := &ptz.ServiceContext{
 				Port: cfg.Port,
 			}
 			handleServiceError(w, ptzService.GetServiceCapabilitiesHTTP(w), "PTZ.GetServiceCapabilities")
-		case strings.Contains(soapAction, "GetNodes"):
+		case soapAction == "GetNodes":
 			ptzService := &ptz.ServiceContext{
 				Port:     cfg.Port,
 				PTZNodes: convertPTZNodes(cfg.PTZNode),
@@ -242,33 +241,33 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 		eventsService.StartEventGenerator() // Start generating test events
 
 		switch {
-		case strings.Contains(soapAction, "GetServiceCapabilities"):
+		case soapAction == "GetServiceCapabilities":
 			handleServiceError(w, eventsService.GetServiceCapabilitiesHTTP(w), "Events.GetServiceCapabilities")
-		case strings.Contains(soapAction, "CreatePullPointSubscription"):
+		case soapAction == "CreatePullPointSubscription":
 			handleServiceError(w, eventsService.CreatePullPointSubscriptionHTTP(w, r), "Events.CreatePullPointSubscription")
-		case strings.Contains(soapAction, "PullMessages"):
+		case soapAction == "PullMessages":
 			handleServiceError(w, eventsService.PullMessagesHTTP(w, r), "Events.PullMessages")
-		case strings.Contains(soapAction, "Subscribe"):
+		case soapAction == "Subscribe":
 			handleServiceError(w, eventsService.SubscribeHTTP(w, r), "Events.Subscribe")
-		case strings.Contains(soapAction, "Renew"):
+		case soapAction == "Renew":
 			handleServiceError(w, eventsService.RenewHTTP(w, r), "Events.Renew")
-		case strings.Contains(soapAction, "Unsubscribe"):
+		case soapAction == "Unsubscribe":
 			handleServiceError(w, eventsService.UnsubscribeHTTP(w, r), "Events.Unsubscribe")
-		case strings.Contains(soapAction, "GetEventProperties"):
+		case soapAction == "GetEventProperties":
 			handleServiceError(w, eventsService.GetEventPropertiesHTTP(w), "Events.GetEventProperties")
-		case strings.Contains(soapAction, "SetSynchronizationPoint"):
+		case soapAction == "SetSynchronizationPoint":
 			handleServiceError(w, eventsService.SetSynchronizationPointHTTP(w, r), "Events.SetSynchronizationPoint")
 		default:
 			sendUnsupportedResponse(w, cfg, "tev", soapAction)
 		}
 	case "deviceio_service":
 		switch {
-		case strings.Contains(soapAction, "GetServiceCapabilities"):
+		case soapAction == "GetServiceCapabilities":
 			deviceioService := &deviceio.ServiceContext{
 				Port: cfg.Port,
 			}
 			handleServiceError(w, deviceioService.GetServiceCapabilitiesHTTP(w), "DeviceIO.GetServiceCapabilities")
-		case strings.Contains(soapAction, "GetRelayOutputs"):
+		case soapAction == "GetRelayOutputs":
 			deviceioService := &deviceio.ServiceContext{
 				Port:         cfg.Port,
 				RelayOutputs: convertRelayOutputs(cfg.RelayOutputs),

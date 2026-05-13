@@ -77,13 +77,17 @@ Go fault body is technically empty-stringed where C fills in
 
 ---
 
-### G-006 — `adv_fault_if_unknown` not implemented
+### G-006 — `adv_fault_if_unknown` / `adv_fault_if_set` not implemented ✅ fixed
 
-**Summary**: C supports an `adv_fault_if_unknown` config flag that
-switches unsupported-op handling between "empty 200" and "fault 500".
-Go always returns a fault. See plan §0b.
+**Summary**: C supports `adv_fault_if_unknown` (switches unsupported-op
+handling between "empty 200" and "fault 500") and `adv_fault_if_set`
+(makes five media `Set*` ops fault unconditionally). Go always returned
+a fault regardless of config.
 
-**Fix window**: Phase 0b.
+**Fixed in**: Phase 0b (`97cd2ec`) — `sendUnsupportedResponse` in
+`internal/server/onvif_server.go` now branches on `cfg.AdvFaultIfUnknown`
+and passes the canonical ONVIF ns prefix (`tds`/`trt`/`tptz`/`tev`/`tmd`)
+to `xmlfault.RenderEmpty`, matching C's `send_empty_response(ns, method)`.
 
 ---
 
@@ -133,11 +137,24 @@ match the C reference byte-for-byte yet — Go's templates under
 `service_files/<svc>/` predate the parity effort and were authored
 independently of the C source's `<svc>_service_files/`.
 
-**Examples** (from `TestGoldenDiff` summary):
+**Root cause — corrected diagnosis (Phase 0b follow-up)**: The initial
+diagnosis attributed the `GetProfiles` 329 vs 8304 byte gap entirely to
+template divergence. That was partially wrong. The Go config parser only
+understood dotted Go-format keys (`profile.0.name=`, `scope.0=`, etc.)
+and silently dropped every flat C-format key in the canonical fixture
+(`name=`, `scope=`, `ptz=`, `idle_state=`, `topic=`, …). Calling
+`LoadConfig("test/fixtures/config/server.conf")` returned `cfg.Profiles`
+of length 0. Fixed in the Phase 0b follow-up commit by adding
+`parseFlatConfig` to `internal/config/config.go` and the canary test
+`TestLoadConfig_CanonicalFixture`. After that fix profiles are loaded,
+so the byte gap on `GetProfiles` will narrow substantially when templates
+are aligned.
+
+**Examples** (from `TestGoldenDiff` summary, before config fix):
 - `device_service/GetUsers`        Go 252 vs C 223 bytes canonical
 - `device_service/GetCapabilities` Go 3081 vs C 2523 bytes
-- `media_service/GetProfiles`      Go 329 vs C 8304 bytes (missing the
-  per-profile composer entirely)
+- `media_service/GetProfiles`      Go 329 vs C 8304 bytes (zero profiles
+  loaded; both config parser gap AND template divergence)
 
 **Fix window**: Distributed across phases 1-5 of the parity plan.
 Each phase brings one or two services to byte-identical parity by

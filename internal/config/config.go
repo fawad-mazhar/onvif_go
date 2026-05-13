@@ -285,7 +285,12 @@ func parseConfigValue(context *ServiceContext, key, value string) error {
 	}
 
 	// Handle prefixed configurations
-	return parsePrefixedConfig(context, key, value)
+	if err := parsePrefixedConfig(context, key, value); err != nil {
+		return err
+	}
+
+	// Handle flat C-format configurations (canonical onvif_simple_server format)
+	return parseFlatConfig(context, key, value)
 }
 
 // parseBasicConfig handles basic string configuration values
@@ -617,6 +622,276 @@ func parseEventsEnableConfig(context *ServiceContext, value string) error {
 		context.EventsEnable = EventsNone
 	}
 
+	return nil
+}
+
+// parseFlatConfig handles the flat C-format config keys used by the canonical
+// onvif_simple_server.conf (no dotted prefixes). The C parser is sequential:
+// `name=` starts a new profile; `idle_state=` starts a new relay output;
+// `topic=` (after events=N) starts a new event. Subsequent property keys
+// attach to the most recently started section.
+func parseFlatConfig(context *ServiceContext, key, value string) error {
+	switch strings.ToLower(key) {
+
+	// Interface — C key is `ifs`, Go basic config uses `interface`
+	case "ifs":
+		context.Interface = value
+
+	// Scopes — each `scope=` appends one entry (repeated key)
+	case "scope":
+		context.Scopes = append(context.Scopes, value)
+
+	// ---- Profile fields ------------------------------------------------
+	// `name=` starts a new profile; subsequent keys attach to it.
+	case "name":
+		context.Profiles = append(context.Profiles, StreamProfile{
+			Type:         H264,
+			AudioEncoder: AAC,
+			AudioDecoder: AudioNone,
+		})
+		context.Profiles[len(context.Profiles)-1].Name = value
+
+	case "width":
+		if len(context.Profiles) == 0 {
+			return nil
+		}
+		w, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("invalid width: %v", err)
+		}
+		context.Profiles[len(context.Profiles)-1].Width = w
+
+	case "height":
+		if len(context.Profiles) == 0 {
+			return nil
+		}
+		h, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("invalid height: %v", err)
+		}
+		context.Profiles[len(context.Profiles)-1].Height = h
+
+	case "url":
+		if len(context.Profiles) == 0 {
+			return nil
+		}
+		context.Profiles[len(context.Profiles)-1].URL = value
+
+	case "snapurl":
+		if len(context.Profiles) == 0 {
+			return nil
+		}
+		context.Profiles[len(context.Profiles)-1].SnapURL = value
+
+	case "type":
+		if len(context.Profiles) == 0 {
+			return nil
+		}
+		context.Profiles[len(context.Profiles)-1].Type = parseStreamType(value)
+
+	case "audio_encoder":
+		if len(context.Profiles) == 0 {
+			return nil
+		}
+		context.Profiles[len(context.Profiles)-1].AudioEncoder = parseAudioType(value)
+
+	case "audio_decoder":
+		if len(context.Profiles) == 0 {
+			return nil
+		}
+		context.Profiles[len(context.Profiles)-1].AudioDecoder = parseAudioType(value)
+
+	// ---- PTZ fields ----------------------------------------------------
+	// `ptz=1` enables the node and resets defaults; step/cmd keys follow.
+	case "ptz":
+		if value == "1" {
+			context.PTZNode.Enable = 1
+			context.PTZNode.MaxStepX = 360.0
+			context.PTZNode.MaxStepY = 180.0
+		}
+
+	case "min_step_x":
+		if context.PTZNode.Enable == 1 {
+			v, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				return fmt.Errorf("invalid min_step_x: %v", err)
+			}
+			context.PTZNode.MinStepX = v
+		}
+	case "max_step_x":
+		if context.PTZNode.Enable == 1 {
+			v, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				return fmt.Errorf("invalid max_step_x: %v", err)
+			}
+			context.PTZNode.MaxStepX = v
+		}
+	case "min_step_y":
+		if context.PTZNode.Enable == 1 {
+			v, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				return fmt.Errorf("invalid min_step_y: %v", err)
+			}
+			context.PTZNode.MinStepY = v
+		}
+	case "max_step_y":
+		if context.PTZNode.Enable == 1 {
+			v, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				return fmt.Errorf("invalid max_step_y: %v", err)
+			}
+			context.PTZNode.MaxStepY = v
+		}
+	case "min_step_z":
+		if context.PTZNode.Enable == 1 {
+			v, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				return fmt.Errorf("invalid min_step_z: %v", err)
+			}
+			context.PTZNode.MinStepZ = v
+		}
+	case "max_step_z":
+		if context.PTZNode.Enable == 1 {
+			v, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				return fmt.Errorf("invalid max_step_z: %v", err)
+			}
+			context.PTZNode.MaxStepZ = v
+		}
+	case "get_position":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.GetPosition = value
+		}
+	case "is_moving":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.IsMoving = value
+		}
+	case "move_left":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.MoveLeft = value
+		}
+	case "move_right":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.MoveRight = value
+		}
+	case "move_up":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.MoveUp = value
+		}
+	case "move_down":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.MoveDown = value
+		}
+	case "move_in":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.MoveIn = value
+		}
+	case "move_out":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.MoveOut = value
+		}
+	case "move_stop":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.MoveStop = value
+		}
+	case "move_preset":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.MovePreset = value
+		}
+	case "goto_home_position":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.GotoHomePosition = value
+		}
+	case "set_preset":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.SetPreset = value
+		}
+	case "set_home_position":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.SetHomePosition = value
+		}
+	case "remove_preset":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.RemovePreset = value
+		}
+	case "jump_to_abs":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.JumpToAbs = value
+		}
+	case "jump_to_rel":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.JumpToRel = value
+		}
+	case "get_presets":
+		if context.PTZNode.Enable == 1 {
+			context.PTZNode.GetPresets = value
+		}
+
+	// ---- Relay output fields -------------------------------------------
+	// `idle_state=` starts a new relay output; `close=` / `open=` follow.
+	case "idle_state":
+		ro := RelayOutput{}
+		if strings.EqualFold(value, "open") {
+			ro.IdleState = IdleStateOpen
+		}
+		context.RelayOutputs = append(context.RelayOutputs, ro)
+		context.RelayOutputsNum = len(context.RelayOutputs)
+
+	case "close":
+		if len(context.RelayOutputs) == 0 {
+			return nil
+		}
+		context.RelayOutputs[len(context.RelayOutputs)-1].CloseCmd = value
+
+	case "open":
+		if len(context.RelayOutputs) == 0 {
+			return nil
+		}
+		context.RelayOutputs[len(context.RelayOutputs)-1].OpenCmd = value
+
+	// ---- Event fields --------------------------------------------------
+	// `events=N` sets the enable mode. `topic=` starts a new event entry.
+	case "events":
+		switch value {
+		case "1":
+			context.EventsEnable = EventsPullPoint
+		case "2":
+			context.EventsEnable = EventsBaseSubscription
+		case "3":
+			context.EventsEnable = EventsBoth
+		}
+
+	case "topic":
+		if context.EventsEnable == EventsNone {
+			return nil
+		}
+		context.Events = append(context.Events, Event{Topic: value})
+		context.EventsNum = len(context.Events)
+
+	case "source_name":
+		if len(context.Events) == 0 {
+			return nil
+		}
+		context.Events[len(context.Events)-1].SourceName = value
+
+	case "source_type":
+		if len(context.Events) == 0 {
+			return nil
+		}
+		context.Events[len(context.Events)-1].SourceType = value
+
+	case "source_value":
+		if len(context.Events) == 0 {
+			return nil
+		}
+		context.Events[len(context.Events)-1].SourceValue = value
+
+	case "input_file":
+		if len(context.Events) == 0 {
+			return nil
+		}
+		context.Events[len(context.Events)-1].InputFile = value
+	}
 	return nil
 }
 

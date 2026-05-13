@@ -64,7 +64,7 @@ func readBody(t *testing.T, r *http.Response) string {
 // with an empty <tds:FooResponse/> body, matching C's send_empty_response().
 func TestAdvFaultIfUnknown_DefaultEmptyResponse(t *testing.T) {
 	if _, err := os.Stat(filepath.Join("..", "..", "service_files", "generic", "Empty.xml")); err != nil {
-		t.Skip("service_files/generic/Empty.xml not found — run from repo root or adjust path")
+		t.Fatalf("service_files/generic/Empty.xml not found (required for adv_fault_if_unknown=0 path): %v", err)
 	}
 	cfg := testCfg(t, 0)
 	ts := httptest.NewServer(BuildRouter(cfg))
@@ -107,17 +107,17 @@ func TestAdvFaultIfUnknown_FaultWhenSet(t *testing.T) {
 // sendUnsupportedResponse (and not a hard-coded fault).
 func TestAdvFaultIfUnknown_AllServices(t *testing.T) {
 	if _, err := os.Stat(filepath.Join("..", "..", "service_files", "generic", "Empty.xml")); err != nil {
-		t.Skip("service_files/generic/Empty.xml not found")
+		t.Fatalf("service_files/generic/Empty.xml not found: %v", err)
 	}
 	cfg := testCfg(t, 0)
 	ts := httptest.NewServer(BuildRouter(cfg))
 	defer ts.Close()
 
 	services := map[string][]byte{
-		"/onvif/device_service":  envelope("NoSuchDeviceOp"),
-		"/onvif/media_service":   envelope("NoSuchMediaOp"),
-		"/onvif/ptz_service":     envelope("NoSuchPTZOp"),
-		"/onvif/events_service":  envelope("NoSuchEventsOp"),
+		"/onvif/device_service":   envelope("NoSuchDeviceOp"),
+		"/onvif/media_service":    envelope("NoSuchMediaOp"),
+		"/onvif/ptz_service":      envelope("NoSuchPTZOp"),
+		"/onvif/events_service":   envelope("NoSuchEventsOp"),
 		"/onvif/deviceio_service": envelope("NoSuchDeviceIOOp"),
 	}
 	for path, body := range services {
