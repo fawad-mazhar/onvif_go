@@ -630,6 +630,10 @@ func parseEventsEnableConfig(context *ServiceContext, value string) error {
 // `name=` starts a new profile; `idle_state=` starts a new relay output;
 // `topic=` (after events=N) starts a new event. Subsequent property keys
 // attach to the most recently started section.
+//
+// NOTE: mixing dotted Go-format keys and flat C-format keys in the same file
+// causes duplicates — e.g. both `profile.0.name=X` and `name=X` each append
+// one profile. Use one format per file.
 func parseFlatConfig(context *ServiceContext, key, value string) error {
 	switch strings.ToLower(key) {
 
