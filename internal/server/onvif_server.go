@@ -165,10 +165,18 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 			deviceService := &device.ServiceContext{}
 			handleServiceError(w, deviceService.GetDiscoveryModeHTTP(w), "GetDiscoveryMode")
 		default:
-			handleUnsupportedSOAPAction(w, soapAction)
+			sendUnsupportedResponse(w, cfg, "tds", soapAction)
 		}
 	case "media_service":
 		switch {
+		// adv_fault_if_set: these Set* ops fault unconditionally when the flag is set;
+		// otherwise they fall through to the default unsupported path.
+		case cfg.AdvFaultIfSet == 1 && (soapAction == "SetVideoSourceConfiguration" ||
+			soapAction == "SetAudioSourceConfiguration" ||
+			soapAction == "SetVideoEncoderConfiguration" ||
+			soapAction == "SetAudioEncoderConfiguration" ||
+			soapAction == "SetAudioOutputConfiguration"):
+			sendSOAPError(w, "Action failed")
 		case strings.Contains(soapAction, "GetServiceCapabilities"):
 			mediaService := &media.ServiceContext{
 				Port: cfg.Port,
@@ -209,7 +217,7 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 			}
 			handleServiceError(w, mediaService.DeleteProfileHTTP(w), "Media.DeleteProfile")
 		default:
-			handleUnsupportedSOAPAction(w, soapAction)
+			sendUnsupportedResponse(w, cfg, "trt", soapAction)
 		}
 	case "ptz_service":
 		switch {
@@ -225,7 +233,7 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 			}
 			handleServiceError(w, ptzService.GetNodesHTTP(w), "PTZ.GetNodes")
 		default:
-			handleUnsupportedSOAPAction(w, soapAction)
+			sendUnsupportedResponse(w, cfg, "tptz", soapAction)
 		}
 	case "events_service":
 		eventsService := events.NewServiceContext()
@@ -251,7 +259,7 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 		case strings.Contains(soapAction, "SetSynchronizationPoint"):
 			handleServiceError(w, eventsService.SetSynchronizationPointHTTP(w, r), "Events.SetSynchronizationPoint")
 		default:
-			handleUnsupportedSOAPAction(w, soapAction)
+			sendUnsupportedResponse(w, cfg, "tev", soapAction)
 		}
 	case "deviceio_service":
 		switch {
@@ -267,17 +275,33 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 			}
 			handleServiceError(w, deviceioService.GetRelayOutputsHTTP(w), "DeviceIO.GetRelayOutputs")
 		default:
-			handleUnsupportedSOAPAction(w, soapAction)
+			sendUnsupportedResponse(w, cfg, "tmd", soapAction)
 		}
 	default:
 		handleUnsupportedService(w, serviceName)
 	}
 }
 
-// handleUnsupportedSOAPAction handles unsupported SOAP actions with consistent logging
-func handleUnsupportedSOAPAction(w http.ResponseWriter, soapAction string) {
-	logger.Warnf("Unsupported SOAP action: %s", soapAction)
-	sendSOAPError(w, "Unsupported SOAP action")
+// sendUnsupportedResponse implements C's <svc>_unsupported() semantics:
+//   - adv_fault_if_unknown == 0 (default): send an empty 200 response,
+//     identical to C's send_empty_response(ns, method).
+//   - adv_fault_if_unknown == 1: send an action-failed SOAP fault,
+//     identical to C's send_action_failed_fault(service, -1).
+func sendUnsupportedResponse(w http.ResponseWriter, cfg *config.ServiceContext, ns, action string) {
+	logger.Warnf("Unsupported SOAP action: %s", action)
+	if cfg.AdvFaultIfUnknown == 1 {
+		sendSOAPError(w, "Action failed")
+		return
+	}
+	body, status, err := xmlfault.RenderEmpty(ns, action)
+	if err != nil {
+		logger.Warnf("sendUnsupportedResponse RenderEmpty: %v", err)
+		sendSOAPError(w, "Internal server error")
+		return
+	}
+	w.Header().Set("Content-Type", "application/soap+xml; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = w.Write(body)
 }
 
 // handleUnsupportedService handles unsupported services with consistent logging
