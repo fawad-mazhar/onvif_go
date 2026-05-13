@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -339,7 +340,7 @@ func TestLoadConfigJSON_CanonicalFixture(t *testing.T) {
 
 // TestLoadConfigJSON_RoundTrip is the oracle for Phase 0c: load the same
 // logical config from both formats and assert the resulting ServiceContext
-// structs have identical values for every load-bearing field.
+// structs are deeply equal (every field, not just a hand-picked subset).
 func TestLoadConfigJSON_RoundTrip(t *testing.T) {
 	repoRoot, _ := filepath.Abs(filepath.Join("..", ".."))
 	confPath := filepath.Join(repoRoot, "test", "fixtures", "config", "server.conf")
@@ -359,115 +360,108 @@ func TestLoadConfigJSON_RoundTrip(t *testing.T) {
 		t.Fatalf("LoadConfigJSON: %v", err)
 	}
 
-	// Scalars
-	if conf.Port != jcfg.Port {
-		t.Errorf("Port: conf=%d json=%d", conf.Port, jcfg.Port)
+	if !reflect.DeepEqual(conf, jcfg) {
+		t.Errorf("conf and json configs produce different ServiceContext structs:\nconf: %+v\njson: %+v", conf, jcfg)
 	}
-	if conf.Manufacturer != jcfg.Manufacturer {
-		t.Errorf("Manufacturer: conf=%q json=%q", conf.Manufacturer, jcfg.Manufacturer)
+}
+
+// TestLoadConfigJSON_SparseDefaults verifies that the JSON loader applies the
+// same defaults as parseFlatConfig for fields omitted from the JSON:
+//   - profile with no "type" → H264
+//   - profile with no "audio_encoder" → AAC
+//   - ptz with enable=1 and no max_step_x/y → 360/180
+func TestLoadConfigJSON_SparseDefaults(t *testing.T) {
+	dir := t.TempDir()
+
+	// --- sparse profile ---
+	jsonP := writeJSON(t, dir, `{"profiles":[{"name":"x"}]}`)
+	jcfg, err := LoadConfigJSON(jsonP)
+	if err != nil {
+		t.Fatalf("LoadConfigJSON sparse profile: %v", err)
 	}
-	if conf.Model != jcfg.Model {
-		t.Errorf("Model: conf=%q json=%q", conf.Model, jcfg.Model)
+	if len(jcfg.Profiles) != 1 {
+		t.Fatalf("Profiles len = %d; want 1", len(jcfg.Profiles))
 	}
-	if conf.Interface != jcfg.Interface {
-		t.Errorf("Interface: conf=%q json=%q", conf.Interface, jcfg.Interface)
+	if jcfg.Profiles[0].Type != H264 {
+		t.Errorf("sparse profile Type = %v; want H264 (default)", jcfg.Profiles[0].Type)
 	}
-	if conf.AdvFaultIfUnknown != jcfg.AdvFaultIfUnknown {
-		t.Errorf("AdvFaultIfUnknown: conf=%d json=%d", conf.AdvFaultIfUnknown, jcfg.AdvFaultIfUnknown)
+	if jcfg.Profiles[0].AudioEncoder != AAC {
+		t.Errorf("sparse profile AudioEncoder = %v; want AAC (default)", jcfg.Profiles[0].AudioEncoder)
 	}
-	if conf.AdvFaultIfSet != jcfg.AdvFaultIfSet {
-		t.Errorf("AdvFaultIfSet: conf=%d json=%d", conf.AdvFaultIfSet, jcfg.AdvFaultIfSet)
+	if jcfg.Profiles[0].AudioDecoder != AudioNone {
+		t.Errorf("sparse profile AudioDecoder = %v; want AudioNone (default)", jcfg.Profiles[0].AudioDecoder)
 	}
 
-	// Scopes
-	if len(conf.Scopes) != len(jcfg.Scopes) {
-		t.Errorf("Scopes len: conf=%d json=%d", len(conf.Scopes), len(jcfg.Scopes))
-	} else {
-		for i := range conf.Scopes {
-			if conf.Scopes[i] != jcfg.Scopes[i] {
-				t.Errorf("Scopes[%d]: conf=%q json=%q", i, conf.Scopes[i], jcfg.Scopes[i])
-			}
-		}
+	// compare against equivalent sparse .conf
+	confP := writeConf(t, dir, "name=x\n")
+	ccfg, err := LoadConfig(confP)
+	if err != nil {
+		t.Fatalf("LoadConfig sparse profile: %v", err)
+	}
+	if !reflect.DeepEqual(ccfg.Profiles, jcfg.Profiles) {
+		t.Errorf("sparse profile mismatch: conf=%+v json=%+v", ccfg.Profiles, jcfg.Profiles)
 	}
 
-	// Profiles
-	if len(conf.Profiles) != len(jcfg.Profiles) {
-		t.Fatalf("Profiles len: conf=%d json=%d", len(conf.Profiles), len(jcfg.Profiles))
+	// --- sparse PTZ ---
+	jsonPTZ := writeJSON(t, dir, `{"ptz":{"enable":1}}`)
+	ptz, err := LoadConfigJSON(jsonPTZ)
+	if err != nil {
+		t.Fatalf("LoadConfigJSON sparse ptz: %v", err)
 	}
-	for i, cp := range conf.Profiles {
-		jp := jcfg.Profiles[i]
-		if cp.Name != jp.Name {
-			t.Errorf("Profiles[%d].Name: conf=%q json=%q", i, cp.Name, jp.Name)
-		}
-		if cp.Width != jp.Width || cp.Height != jp.Height {
-			t.Errorf("Profiles[%d] dims: conf=%dx%d json=%dx%d", i, cp.Width, cp.Height, jp.Width, jp.Height)
-		}
-		if cp.URL != jp.URL {
-			t.Errorf("Profiles[%d].URL: conf=%q json=%q", i, cp.URL, jp.URL)
-		}
-		if cp.Type != jp.Type {
-			t.Errorf("Profiles[%d].Type: conf=%v json=%v", i, cp.Type, jp.Type)
-		}
-		if cp.AudioEncoder != jp.AudioEncoder {
-			t.Errorf("Profiles[%d].AudioEncoder: conf=%v json=%v", i, cp.AudioEncoder, jp.AudioEncoder)
-		}
-		if cp.AudioDecoder != jp.AudioDecoder {
-			t.Errorf("Profiles[%d].AudioDecoder: conf=%v json=%v", i, cp.AudioDecoder, jp.AudioDecoder)
-		}
+	if ptz.PTZNode.MaxStepX != 360.0 {
+		t.Errorf("sparse ptz MaxStepX = %v; want 360 (default)", ptz.PTZNode.MaxStepX)
+	}
+	if ptz.PTZNode.MaxStepY != 180.0 {
+		t.Errorf("sparse ptz MaxStepY = %v; want 180 (default)", ptz.PTZNode.MaxStepY)
 	}
 
-	// PTZ
-	if conf.PTZNode.Enable != jcfg.PTZNode.Enable {
-		t.Errorf("PTZNode.Enable: conf=%d json=%d", conf.PTZNode.Enable, jcfg.PTZNode.Enable)
+	// compare against equivalent sparse .conf
+	confPTZ := writeConf(t, dir, "ptz=1\n")
+	ccfgPTZ, err := LoadConfig(confPTZ)
+	if err != nil {
+		t.Fatalf("LoadConfig sparse ptz: %v", err)
 	}
-	if conf.PTZNode.MaxStepX != jcfg.PTZNode.MaxStepX {
-		t.Errorf("PTZNode.MaxStepX: conf=%v json=%v", conf.PTZNode.MaxStepX, jcfg.PTZNode.MaxStepX)
+	if !reflect.DeepEqual(ccfgPTZ.PTZNode, ptz.PTZNode) {
+		t.Errorf("sparse ptz mismatch: conf=%+v json=%+v", ccfgPTZ.PTZNode, ptz.PTZNode)
 	}
-	if conf.PTZNode.MaxStepY != jcfg.PTZNode.MaxStepY {
-		t.Errorf("PTZNode.MaxStepY: conf=%v json=%v", conf.PTZNode.MaxStepY, jcfg.PTZNode.MaxStepY)
+}
+
+// TestLoad_ByExtension verifies that Load dispatches to the correct loader
+// based on the file extension (.json or anything else).
+func TestLoad_ByExtension(t *testing.T) {
+	dir := t.TempDir()
+
+	// .json → LoadConfigJSON
+	jsonFile := writeJSON(t, dir, `{"port":9090}`)
+	cfg, err := Load(jsonFile)
+	if err != nil {
+		t.Fatalf("Load(.json): %v", err)
 	}
-	if conf.PTZNode.GetPosition != jcfg.PTZNode.GetPosition {
-		t.Errorf("PTZNode.GetPosition: conf=%q json=%q", conf.PTZNode.GetPosition, jcfg.PTZNode.GetPosition)
-	}
-	if conf.PTZNode.MoveLeft != jcfg.PTZNode.MoveLeft {
-		t.Errorf("PTZNode.MoveLeft: conf=%q json=%q", conf.PTZNode.MoveLeft, jcfg.PTZNode.MoveLeft)
+	if cfg.Port != 9090 {
+		t.Errorf("Load(.json) port = %d; want 9090", cfg.Port)
 	}
 
-	// Relay outputs
-	if len(conf.RelayOutputs) != len(jcfg.RelayOutputs) {
-		t.Fatalf("RelayOutputs len: conf=%d json=%d", len(conf.RelayOutputs), len(jcfg.RelayOutputs))
+	// .conf → LoadConfig
+	confFile := writeConf(t, dir, "port=7070\n")
+	cfg, err = Load(confFile)
+	if err != nil {
+		t.Fatalf("Load(.conf): %v", err)
 	}
-	for i, cr := range conf.RelayOutputs {
-		jr := jcfg.RelayOutputs[i]
-		if cr.IdleState != jr.IdleState {
-			t.Errorf("RelayOutputs[%d].IdleState: conf=%v json=%v", i, cr.IdleState, jr.IdleState)
-		}
-		if cr.CloseCmd != jr.CloseCmd {
-			t.Errorf("RelayOutputs[%d].CloseCmd: conf=%q json=%q", i, cr.CloseCmd, jr.CloseCmd)
-		}
-		if cr.OpenCmd != jr.OpenCmd {
-			t.Errorf("RelayOutputs[%d].OpenCmd: conf=%q json=%q", i, cr.OpenCmd, jr.OpenCmd)
-		}
+	if cfg.Port != 7070 {
+		t.Errorf("Load(.conf) port = %d; want 7070", cfg.Port)
 	}
 
-	// Events
-	if conf.EventsEnable != jcfg.EventsEnable {
-		t.Errorf("EventsEnable: conf=%v json=%v", conf.EventsEnable, jcfg.EventsEnable)
+	// .JSON (upper-case) → LoadConfigJSON (case-insensitive extension check)
+	jsonUpper := filepath.Join(dir, "upper.JSON")
+	if err := os.WriteFile(jsonUpper, []byte(`{"port":5050}`), 0o600); err != nil {
+		t.Fatalf("write upper.JSON: %v", err)
 	}
-	if len(conf.Events) != len(jcfg.Events) {
-		t.Fatalf("Events len: conf=%d json=%d", len(conf.Events), len(jcfg.Events))
+	cfg, err = Load(jsonUpper)
+	if err != nil {
+		t.Fatalf("Load(.JSON): %v", err)
 	}
-	for i, ce := range conf.Events {
-		je := jcfg.Events[i]
-		if ce.Topic != je.Topic {
-			t.Errorf("Events[%d].Topic: conf=%q json=%q", i, ce.Topic, je.Topic)
-		}
-		if ce.SourceName != je.SourceName {
-			t.Errorf("Events[%d].SourceName: conf=%q json=%q", i, ce.SourceName, je.SourceName)
-		}
-		if ce.InputFile != je.InputFile {
-			t.Errorf("Events[%d].InputFile: conf=%q json=%q", i, ce.InputFile, je.InputFile)
-		}
+	if cfg.Port != 5050 {
+		t.Errorf("Load(.JSON) port = %d; want 5050", cfg.Port)
 	}
 }
 

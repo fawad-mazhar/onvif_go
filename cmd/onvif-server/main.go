@@ -2,6 +2,7 @@
 package main
 
 import (
+	"flag"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,11 +14,14 @@ import (
 )
 
 func main() {
+	configPath := flag.String("config", "internal/config/onvif_simple_server.conf", "path to config file (.conf or .json)")
+	flag.Parse()
+
 	// Initialize logger
 	logger.InitLogger(logger.INFO)
 
-	// Load configuration
-	cfg, err := config.LoadConfig("internal/config/onvif_simple_server.conf")
+	// Load configuration (extension-agnostic: .json or flat key-value)
+	cfg, err := config.Load(*configPath)
 	if err != nil {
 		logger.Fatalf("Failed to load config: %v", err)
 	}

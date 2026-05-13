@@ -12,28 +12,28 @@ import (
 // events enable) so the file is human-readable without needing to know integer
 // ordinals. It is intentionally package-private; callers use LoadConfigJSON.
 type jsonConfig struct {
-	Port              int                `json:"port"`
-	NotificationPort  int                `json:"notification_port,omitempty"`
-	WSDPort           int                `json:"wsd_port,omitempty"`
-	User              string             `json:"user,omitempty"`
-	Password          string             `json:"password,omitempty"`
-	Manufacturer      string             `json:"manufacturer,omitempty"`
-	Model             string             `json:"model,omitempty"`
-	FirmwareVer       string             `json:"firmware_ver,omitempty"`
-	SerialNum         string             `json:"serial_num,omitempty"`
-	HardwareID        string             `json:"hardware_id,omitempty"`
-	UUID              string             `json:"uuid,omitempty"`
-	Interface         string             `json:"ifs,omitempty"`
-	Scopes            []string           `json:"scopes,omitempty"`
-	AdvFaultIfUnknown int                `json:"adv_fault_if_unknown,omitempty"`
-	AdvFaultIfSet     int                `json:"adv_fault_if_set,omitempty"`
-	AdvEnableMedia2   int                `json:"adv_enable_media2,omitempty"`
-	AdvSynologyNVR    int                `json:"adv_synology_nvr,omitempty"`
-	Profiles          []jsonProfile      `json:"profiles,omitempty"`
-	PTZ               *jsonPTZ           `json:"ptz,omitempty"`
-	RelayOutputs      []jsonRelayOutput  `json:"relay_outputs,omitempty"`
-	EventsEnable      int                `json:"events_enable,omitempty"`
-	Events            []jsonEvent        `json:"events,omitempty"`
+	Port              int               `json:"port"`
+	NotificationPort  int               `json:"notification_port,omitempty"`
+	WSDPort           int               `json:"wsd_port,omitempty"`
+	User              string            `json:"user,omitempty"`
+	Password          string            `json:"password,omitempty"`
+	Manufacturer      string            `json:"manufacturer,omitempty"`
+	Model             string            `json:"model,omitempty"`
+	FirmwareVer       string            `json:"firmware_ver,omitempty"`
+	SerialNum         string            `json:"serial_num,omitempty"`
+	HardwareID        string            `json:"hardware_id,omitempty"`
+	UUID              string            `json:"uuid,omitempty"`
+	Interface         string            `json:"ifs,omitempty"`
+	Scopes            []string          `json:"scopes,omitempty"`
+	AdvFaultIfUnknown int               `json:"adv_fault_if_unknown,omitempty"`
+	AdvFaultIfSet     int               `json:"adv_fault_if_set,omitempty"`
+	AdvEnableMedia2   int               `json:"adv_enable_media2,omitempty"`
+	AdvSynologyNVR    int               `json:"adv_synology_nvr,omitempty"`
+	Profiles          []jsonProfile     `json:"profiles,omitempty"`
+	PTZ               *jsonPTZ          `json:"ptz,omitempty"`
+	RelayOutputs      []jsonRelayOutput `json:"relay_outputs,omitempty"`
+	EventsEnable      int               `json:"events_enable,omitempty"`
+	Events            []jsonEvent       `json:"events,omitempty"`
 }
 
 // jsonProfile is the JSON representation of a stream profile.
@@ -120,8 +120,16 @@ func LoadConfigJSON(filename string) (*ServiceContext, error) {
 }
 
 // convertJSONConfig maps a jsonConfig DTO to ServiceContext, applying the same
-// enum conversions as the flat-config parser (parseStreamType, parseAudioType).
+// enum conversions and defaults as the flat-config parser:
+//   - Profile with no type defaults to H264; no audio_encoder defaults to AAC.
+//     (Mirrors parseFlatConfig's append-time defaults.)
+//   - PTZ with enable=1 and zero MaxStepX/MaxStepY defaults to 360/180.
+//     (Mirrors the `ptz=1` branch in parseFlatConfig.)
+//   - Port validated against 0-65535 like parsePortValue.
 func convertJSONConfig(jcfg *jsonConfig) (*ServiceContext, error) {
+	if jcfg.Port < 0 || jcfg.Port > 65535 {
+		return nil, fmt.Errorf("port value out of range: %d", jcfg.Port)
+	}
 	ctx := &ServiceContext{
 		Port:              jcfg.Port,
 		NotificationPort:  jcfg.NotificationPort,
@@ -148,9 +156,9 @@ func convertJSONConfig(jcfg *jsonConfig) (*ServiceContext, error) {
 		ctx.Scopes = make([]string, 0)
 	}
 
-	// Profiles
+	// Profiles — apply same append-time defaults as parseFlatConfig
 	for _, jp := range jcfg.Profiles {
-		ctx.Profiles = append(ctx.Profiles, StreamProfile{
+		sp := StreamProfile{
 			Name:         jp.Name,
 			Width:        jp.Width,
 			Height:       jp.Height,
@@ -159,18 +167,34 @@ func convertJSONConfig(jcfg *jsonConfig) (*ServiceContext, error) {
 			Type:         parseStreamType(jp.Type),
 			AudioEncoder: parseAudioType(jp.AudioEncoder),
 			AudioDecoder: parseAudioType(jp.AudioDecoder),
-		})
+		}
+		if jp.Type == "" {
+			sp.Type = H264
+		}
+		if jp.AudioEncoder == "" {
+			sp.AudioEncoder = AAC
+		}
+		ctx.Profiles = append(ctx.Profiles, sp)
 	}
 
-	// PTZ node
+	// PTZ node — apply parseFlatConfig defaults (360/180) when enable=1 and steps unset
 	if jcfg.PTZ != nil {
 		p := jcfg.PTZ
+		maxX, maxY := p.MaxStepX, p.MaxStepY
+		if p.Enable == 1 {
+			if maxX == 0 {
+				maxX = 360.0
+			}
+			if maxY == 0 {
+				maxY = 180.0
+			}
+		}
 		ctx.PTZNode = PTZNode{
 			Enable:           p.Enable,
 			MinStepX:         p.MinStepX,
-			MaxStepX:         p.MaxStepX,
+			MaxStepX:         maxX,
 			MinStepY:         p.MinStepY,
-			MaxStepY:         p.MaxStepY,
+			MaxStepY:         maxY,
 			MinStepZ:         p.MinStepZ,
 			MaxStepZ:         p.MaxStepZ,
 			GetPosition:      p.GetPosition,

@@ -255,6 +255,17 @@ func LoadConfig(filename string) (*ServiceContext, error) {
 	return context, nil
 }
 
+// Load loads a ServiceContext from either a JSON or flat key-value config file,
+// dispatching by file extension: ".json" routes to LoadConfigJSON; everything
+// else routes to LoadConfig. This is the recommended entry point for callers
+// that want format-agnostic config loading.
+func Load(filename string) (*ServiceContext, error) {
+	if strings.HasSuffix(strings.ToLower(filename), ".json") {
+		return LoadConfigJSON(filename)
+	}
+	return LoadConfig(filename)
+}
+
 // parsePortValue parses and validates a port value
 func parsePortValue(value, fieldName string) (int, error) {
 	port, err := strconv.Atoi(value)
