@@ -100,6 +100,31 @@ post-process captured fixtures to blank out the volatile fields.
 
 ---
 
+### G-009 — Latent string-index parser in `utils.ExtractSOAPElement`
+
+**Summary**: `internal/utils/utils.go:ExtractSOAPElement` uses the same
+prefix-enumeration pattern as the now-fixed G-003/G-004:
+
+```go
+for _, ns := range []string{"trt:", "tt:", "ter:", "tns1:"} {
+    openTag := "<" + ns + elementName + ">"
+```
+
+Two callers in `pkg/services/media/service.go` extract `<ProfileToken>`
+from `GetStreamUri` and `GetSnapshotUri` requests. Works for the
+captured fixtures (which use `<trt:ProfileToken>`), breaks silently for
+any other prefix.
+
+**Masking**: Current test fixtures use the `trt:` prefix throughout;
+the harness doesn't test alternate prefixes for media ops.
+
+**Fix window**: Phase 2 (Media service) — the media handlers will be
+substantially rewritten in that phase. Replace with a call to
+`internal/xml.ExtractElementValue` (backed by `encoding/xml`, same
+pattern as `ExtractBodyAction`). Don't gate Phase 0b on this.
+
+---
+
 ### G-008 — Go handler templates diverge from C reference (umbrella)
 
 **Summary**: After G-003/G-004 fixes, every captured request now routes
