@@ -17,8 +17,12 @@ type gzipRC struct {
 }
 
 func (g gzipRC) Close() error {
-	_ = g.Reader.Close()
-	return g.f.Close()
+	rerr := g.Reader.Close()
+	ferr := g.f.Close()
+	if rerr != nil {
+		return rerr
+	}
+	return ferr
 }
 
 // openTemplate opens filename for reading, transparently decompressing gzip

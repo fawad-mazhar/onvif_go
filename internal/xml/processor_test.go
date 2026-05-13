@@ -117,6 +117,29 @@ func TestFileExists_Missing(t *testing.T) {
 	}
 }
 
+func TestProcessTemplate_CorruptGzip(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "bad.xml.gz")
+	if err := os.WriteFile(p, []byte("not a valid gzip stream"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if _, err := ProcessTemplate(p, nil); err == nil {
+		t.Error("expected error for corrupt gzip header")
+	}
+}
+
+func TestProcessTemplate_EmptyGzip(t *testing.T) {
+	dir := t.TempDir()
+	writeXMLGz(t, dir, "empty.xml.gz", "")
+	got, err := ProcessTemplate(filepath.Join(dir, "empty.xml"), nil)
+	if err != nil {
+		t.Fatalf("empty gzip: %v", err)
+	}
+	if got != "" {
+		t.Errorf("expected empty string, got %q", got)
+	}
+}
+
 func TestProcessTemplate_MultiLinePlaceholders(t *testing.T) {
 	dir := t.TempDir()
 	writeXMLGz(t, dir, "multi.xml.gz", "line1 %A%\nline2 %B%\n")

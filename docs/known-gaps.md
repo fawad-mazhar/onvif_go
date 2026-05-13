@@ -169,6 +169,49 @@ pattern as `ExtractBodyAction`). Don't gate Phase 0b on this.
 
 ---
 
+## Opened 2026-05-13 (Phase 0d follow-up)
+
+### G-010 — `internal/exec`: deferred shell-exec security scope
+
+**Summary**: Phase 0d landed the no-shell guarantee (`exec.Command`, no
+`sh -c`), absolute-path check, `DefaultTimeout` (5 s), and `RunFmt` for
+multi-arg templates. Three plan-specified items were explicitly deferred:
+
+1. **Command allow-list not implemented.** `tokenize` only checks that
+   `argv[0]` starts with `/`. The plan called for restricting executions to
+   a configured binary-prefix allow-list (e.g. only binaries under
+   `/usr/local/bin/`). Currently any absolute path is accepted.
+   *Masking*: PTZ command strings originate from the config file only — not
+   from SOAP request bodies. An attacker who can write the config file has
+   already won; the allow-list guards against misconfiguration, not SOAP
+   injection. Low blast radius at current scope.
+
+2. **No per-command output size cap in `Output()`.** A misbehaving script
+   that writes megabytes to stdout fills `bytes.Buffer` unbounded. The C
+   reference caps reads via `fgets(out, MAX_LEN, fp)`. Add a
+   `io.LimitReader(cmd.Stdout, 64*1024)` or document the assumption.
+
+3. **Injection corpus test is owed at the SOAP-handler layer.** The corpus
+   test in `exec_test.go` confirms that shell metacharacters (`;`, `$(...)`,
+   `` `...` ``, `&&`, `|`, `>>`) become inert argv tokens after tokenization.
+   However, SOAP-derived string args (`PresetName`, etc.) can carry
+   `--flag`-style tokens that the wrapped script may honour. Validation of
+   SOAP-derived command arguments belongs in the PTZ handler layer, not here.
+
+**Locations**:
+- `@/Users/fawadmazhar/github/codes/oma/public/onvif_go/internal/exec/exec.go`
+
+**Masking**: No SOAP-derived args reach `exec` in Phase 0d — the PTZ
+handlers that call `Run*`/`Output` don't exist yet.
+
+**Fix window**: Phase 4 (PTZ handlers).
+
+**Block-merge condition for Phase 4**: SOAP-arg validation must exist at
+the handler layer and reject the character set: `;`, `$(...)`, `` `...` ``,
+`&&`, `|`, `>>`, and `--`-prefixed tokens used as non-positional flags.
+
+---
+
 ## Procedure for adding a new gap
 
 1. Assign next `G-nnn` id.
