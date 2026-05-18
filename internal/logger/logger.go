@@ -2,8 +2,6 @@
 package logger
 
 import (
-	"fmt"
-
 	"github.com/sirupsen/logrus"
 )
 
@@ -34,47 +32,39 @@ func InitLogger(level Level) {
 	logger.SetLevel(logrus.Level(level))
 }
 
+// ParseLevel converts a level string (trace, debug, info, warn, error, fatal)
+// to a Level. Returns INFO and an error for unrecognised strings.
+func ParseLevel(s string) (Level, error) {
+	l, err := logrus.ParseLevel(s)
+	return Level(l), err
+}
+
 // Fatalf logs a fatal error message
 func Fatalf(format string, args ...interface{}) {
-	if len(args) > 0 {
-		logger.Fatalf(fmt.Sprintf(format, args...))
-	} else {
-		logger.Fatalf(format)
-	}
+	logger.Fatalf(format, args...)
 }
 
 // Errorf logs an error message
 func Errorf(format string, args ...interface{}) {
-	if len(args) > 0 {
-		logger.Errorf(fmt.Sprintf(format, args...))
-	} else {
-		logger.Errorf(format)
-	}
+	logger.Errorf(format, args...)
 }
 
 // Warnf logs a warning message
 func Warnf(format string, args ...interface{}) {
-	if len(args) > 0 {
-		logger.Warnf(fmt.Sprintf(format, args...))
-	} else {
-		logger.Warnf(format)
-	}
+	logger.Warnf(format, args...)
 }
 
 // Infof logs an info message
 func Infof(format string, args ...interface{}) {
-	if len(args) > 0 {
-		logger.Infof(fmt.Sprintf(format, args...))
-	} else {
-		logger.Infof(format)
-	}
+	logger.Infof(format, args...)
 }
 
 // Debugf logs a debug message
 func Debugf(format string, args ...interface{}) {
-	if len(args) > 0 {
-		logger.Debugf(fmt.Sprintf(format, args...))
-	} else {
-		logger.Debugf(format)
-	}
+	logger.Debugf(format, args...)
+}
+
+// Tracef logs a trace message
+func Tracef(format string, args ...interface{}) {
+	logger.Tracef(format, args...)
 }

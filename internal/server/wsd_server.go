@@ -75,9 +75,6 @@ type WSDServer struct {
 
 // StartWSDServer starts the WS-Discovery UDP multicast server
 func StartWSDServer(cfg *config.ServiceContext) error {
-	// Initialize logging
-	logger.InitLogger(logger.INFO)
-
 	// Create WS-Discovery server instance
 	server, err := NewWSDServer(cfg)
 	if err != nil {

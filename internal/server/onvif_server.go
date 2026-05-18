@@ -92,7 +92,6 @@ func BuildRouter(cfg *config.ServiceContext) chi.Router {
 // StartHTTPServer builds the router and starts listening on cfg.Port.
 // Thin wrapper around BuildRouter for production main().
 func StartHTTPServer(cfg *config.ServiceContext) error {
-	logger.InitLogger(logger.INFO)
 	r := BuildRouter(cfg)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)

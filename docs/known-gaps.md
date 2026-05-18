@@ -212,6 +212,50 @@ the handler layer and reject the character set: `;`, `$(...)`, `` `...` ``,
 
 ---
 
+### G-011 — WSD `parseSOAPAction` / `parseMessageID` fragility and offset bug
+
+**Summary**: `wsd_server.go` contains two string-index SOAP parsers with two
+distinct issues — the same class of fragility fixed for G-003/G-004 in the
+HTTP layer:
+
+1. **Prefix enumeration only handles `wsa:` and `a:`.**
+   Any other prefix (e.g. `s:`, `soap12:`) silently returns `""`, causing the
+   WSD server to drop valid Probe and Resolve messages.
+
+2. **Off-by-N offset bug when `<a:Action>` is matched.** After branching on
+   `<a:Action>`, the code always advances by `len("<wsa:Action>") = 12` bytes
+   instead of `len("<a:Action>") = 10`. The first two bytes of the action URL
+   are silently skipped, so the extracted string starts at `tp://...` instead
+   of `http://...` — causing the ProbeMatch handler to never fire when the
+   incoming message uses the `a:` prefix. Same two-byte mis-alignment in
+   `parseMessageID` (`<wsa:MessageID>` = 15, `<a:MessageID>` = 14).
+
+3. **Duplicate signal handler.** `WSDServer.setupSignalHandler` registers its
+   own `SIGTERM`/`SIGINT` listener. `main.go` also listens on the same signals.
+   Two goroutines race to consume the same OS signal; one will block indefinitely
+   waiting for a signal that was already consumed by the other.
+
+**Locations**:
+- `@/Users/fawadmazhar/github/codes/oma/public/onvif_go/internal/server/wsd_server.go:392-428`
+  (`parseSOAPAction`, `parseMessageID`)
+- `@/Users/fawadmazhar/github/codes/oma/public/onvif_go/internal/server/wsd_server.go:314-331`
+  (`setupSignalHandler`)
+- `@/Users/fawadmazhar/github/codes/oma/public/onvif_go/cmd/onvif-server/main.go:54-58`
+  (competing signal handler)
+
+**Masking**: The Go WSD server is not yet exercised by the golden-diff harness.
+Probe messages in the wild typically use `wsa:Action` (ONVIF client default),
+so the `a:` prefix bug rarely fires. Signal handler race only matters during
+graceful shutdown.
+
+**Fix window**: Phase 2 (WSD service).
+- Replace both parsers with `encoding/xml`-backed helpers (same pattern as
+  `ExtractBodyAction` / `ExtractUsernameToken`).
+- Remove `setupSignalHandler` from `WSDServer`; propagate context cancellation
+  from `main()` via `StartWSDServer(ctx context.Context, cfg ...)` instead.
+
+---
+
 ## Procedure for adding a new gap
 
 1. Assign next `G-nnn` id.

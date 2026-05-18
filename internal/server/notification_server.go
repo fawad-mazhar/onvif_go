@@ -12,10 +12,6 @@ import (
 )
 
 func StartNotificationServer(cfg *config.ServiceContext) error {
-	// Initialize logging
-	logger.InitLogger(logger.INFO)
-	// logger.SetLevel(logger.INFO) - level already set during initialization
-
 	// Create HTTP server for notifications
 	http.HandleFunc("/notification", func(w http.ResponseWriter, r *http.Request) {
 		// Handle notification requests
