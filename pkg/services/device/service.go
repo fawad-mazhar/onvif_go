@@ -176,8 +176,30 @@ func (s *ServiceContext) GetDeviceInformationHTTP(w http.ResponseWriter) error {
 	})
 }
 
-// GetCapabilitiesHTTP selects the ptz/no_ptz template variant based on config
-// and the Category element in the request.
+// categoryCode maps a GetCapabilities Category string to the C icategory int.
+// Returns -1 for unknown/invalid category values (caller should fault).
+// Empty string → 15 (All), matching C's "else { icategory = 15 }".
+func categoryCode(category string) int {
+	switch strings.ToLower(category) {
+	case "":
+		return 15
+	case "device":
+		return 1
+	case "media":
+		return 2
+	case "ptz":
+		return 4
+	case "events":
+		return 8
+	case "all":
+		return 15
+	default:
+		return -1
+	}
+}
+
+// GetCapabilitiesHTTP dispatches on the Category element, matching
+// device_service.c:444-596. Unknown categories return a SOAP fault.
 func (s *ServiceContext) GetCapabilitiesHTTP(w http.ResponseWriter, soapRequest string) error {
 	_, devAddr, mediaAddr, ptzAddr, eventsAddr, deviceioAddr, err := s.serviceAddrs()
 	if err != nil {
@@ -186,24 +208,67 @@ func (s *ServiceContext) GetCapabilitiesHTTP(w http.ResponseWriter, soapRequest 
 
 	pull, base := s.eventsFlags()
 
-	repl := map[string]string{
-		"%DEVICE_SERVICE_ADDRESS%":   devAddr,
-		"%MEDIA_SERVICE_ADDRESS%":    mediaAddr,
-		"%PTZ_SERVICE_ADDRESS%":      ptzAddr,
-		"%EVENTS_SERVICE_ADDRESS%":   eventsAddr,
-		"%DEVICEIO_SERVICE_ADDRESS%": deviceioAddr,
-		"%EVENTS_PULLPOINT%":         pull,
-		"%EVENTS_BASESUBSCRIPTION%":  base,
-		"%AUDIO_SOURCES%":            strconv.Itoa(s.AudioSources),
-		"%AUDIO_OUTPUTS%":            strconv.Itoa(s.AudioOutputs),
-		"%RELAY_OUTPUTS%":            strconv.Itoa(s.RelayOutputsNum),
+	category, _ := xmlfault.ExtractBodyElement([]byte(soapRequest), "Category")
+	icategory := categoryCode(category)
+	if icategory == -1 {
+		return xmlfault.WriteFault(w, xmlfault.Fault{
+			Service:   "device_service",
+			RecSend:   "Receiver",
+			Subcode:   "ter:ActionNotSupported",
+			SubcodeEx: "ter:NoSuchService",
+			Reason:    "No such service",
+			Detail:    "The requested WSDL service category is not supported by the device",
+		})
 	}
 
-	tmpl := "GetCapabilities_no_ptz"
-	if s.PTZEnable {
-		tmpl = "GetCapabilities_ptz"
+	switch icategory {
+	case 1:
+		return utils.ProcessServiceTemplate(w, "device", "GetDeviceCapabilities", map[string]string{
+			"%DEVICE_SERVICE_ADDRESS%": devAddr,
+		})
+	case 2:
+		return utils.ProcessServiceTemplate(w, "device", "GetMediaCapabilities", map[string]string{
+			"%MEDIA_SERVICE_ADDRESS%": mediaAddr,
+		})
+	case 4:
+		if !s.PTZEnable {
+			return xmlfault.WriteFault(w, xmlfault.Fault{
+				Service:   "device_service",
+				RecSend:   "Receiver",
+				Subcode:   "ter:ActionNotSupported",
+				SubcodeEx: "ter:NoSuchService",
+				Reason:    "No such service",
+				Detail:    "The requested WSDL service category is not supported by the device",
+			})
+		}
+		return utils.ProcessServiceTemplate(w, "device", "GetPTZCapabilities", map[string]string{
+			"%PTZ_SERVICE_ADDRESS%": ptzAddr,
+		})
+	case 8:
+		return utils.ProcessServiceTemplate(w, "device", "GetEventsCapabilities", map[string]string{
+			"%EVENTS_SERVICE_ADDRESS%":  eventsAddr,
+			"%EVENTS_BASESUBSCRIPTION%": base,
+			"%EVENTS_PULLPOINT%":        pull,
+		})
+	default:
+		repl := map[string]string{
+			"%DEVICE_SERVICE_ADDRESS%":   devAddr,
+			"%MEDIA_SERVICE_ADDRESS%":    mediaAddr,
+			"%PTZ_SERVICE_ADDRESS%":      ptzAddr,
+			"%EVENTS_SERVICE_ADDRESS%":   eventsAddr,
+			"%DEVICEIO_SERVICE_ADDRESS%": deviceioAddr,
+			"%EVENTS_PULLPOINT%":         pull,
+			"%EVENTS_BASESUBSCRIPTION%":  base,
+			"%AUDIO_SOURCES%":            strconv.Itoa(s.AudioSources),
+			"%AUDIO_OUTPUTS%":            strconv.Itoa(s.AudioOutputs),
+			"%RELAY_OUTPUTS%":            strconv.Itoa(s.RelayOutputsNum),
+		}
+		tmpl := "GetCapabilities_no_ptz"
+		if s.PTZEnable {
+			tmpl = "GetCapabilities_ptz"
+		}
+		return utils.ProcessServiceTemplate(w, "device", tmpl, repl)
 	}
-	return utils.ProcessServiceTemplate(w, "device", tmpl, repl)
 }
 
 // GetScopesHTTP returns a GetScopesResponse with C-format scope items.

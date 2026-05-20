@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/fawad-mazhar/onvif-go/internal/auth"
@@ -317,8 +318,8 @@ func handleUnsupportedService(w http.ResponseWriter, serviceName string) {
 // The fault is rendered without a known device/service address (the
 // handler layer does not currently thread the request's Host header).
 // Fault.xml's %ADDRESS%/%SERVICE% placeholders will be left empty;
-// Phase 0a's scrubber normalizes these in diff so correctness is not
-// affected, and Phase 1's handler plumbing will fill them in.
+// the scrubber normalizes these in diff so correctness is not affected.
+// G-005: request context plumbing is deferred to Phase 2/3.
 func sendSOAPError(w http.ResponseWriter, message string) {
 	if err := xmlfault.WriteFault(w, xmlfault.Fault{
 		RecSend:   "Receiver",
@@ -381,11 +382,13 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 			return
 		}
 
-		// G-001: device_service ops exempt from auth (matches C reference)
+		// G-001: device_service ops exempt from auth (matches C reference strcasecmp).
 		authExempt := serviceName == "device_service" &&
-			(soapAction == "GetSystemDateAndTime" || soapAction == "GetUsers" ||
-				soapAction == "GetCapabilities" || soapAction == "GetServices" ||
-				soapAction == "GetServiceCapabilities")
+			(strings.EqualFold(soapAction, "GetSystemDateAndTime") ||
+				strings.EqualFold(soapAction, "GetUsers") ||
+				strings.EqualFold(soapAction, "GetCapabilities") ||
+				strings.EqualFold(soapAction, "GetServices") ||
+				strings.EqualFold(soapAction, "GetServiceCapabilities"))
 
 		// Validate authentication if required
 		if cfg.User != "" && cfg.Password != "" && !authExempt {

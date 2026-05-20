@@ -25,7 +25,9 @@ C rejects this path (`auth_error = 3 or 4`).
 **Masking**: Go is more permissive; fixtures captured with fresh
 digest tokens don't exercise this path.
 
-**Fix window**: Phase 0e (doc baseline PR) — delete the 6-line branch.
+**Fix window**: Phase 3 (auth hardening) — delete the 6-line plain-text branch.
+Phase 0e window lapsed without action; deferred here to avoid scope-creep
+during media/PTZ parity work.
 
 ---
 
@@ -60,7 +62,9 @@ normalizes host URLs on both sides so diffs still work, but the
 Go fault body is technically empty-stringed where C fills in
 `http://host:port/onvif/<svc>`.
 
-**Fix window**: Phase 1 — plumb `*http.Request` down to `sendSOAPError`.
+**Fix window**: Phase 2/3 — plumb `*http.Request` (or at minimum the
+`Host:` header) down into `sendSOAPError`. Phase 1 left the in-code
+comment at `onvif_server.go:320-321` stale; updated separately.
 
 ---
 
@@ -229,6 +233,50 @@ graceful shutdown.
   `ExtractBodyAction` / `ExtractUsernameToken`).
 - Remove `setupSignalHandler` from `WSDServer`; propagate context cancellation
   from `main()` via `StartWSDServer(ctx context.Context, cfg ...)` instead.
+
+---
+
+## Opened 2026-05-20 (Phase 1 review)
+
+### ~~G-012 — Missing `GetServices_with_capabilities_*.xml` templates~~ (FIXED)
+
+**Summary**: `servicesTemplate(ptz, m2, true)` selected one of four
+`GetServices_with_capabilities_*` file names that were never shipped.
+A client sending `IncludeCapability=true` would silently hit the
+`Empty.xml` fallback and receive malformed XML with a literal
+`<%METHOD% />` body.
+
+**Fixed in**: Phase 1 review — copied all four C reference templates
+(`GetServices_with_capabilities_{ptz,no_ptz}_{media2,no_media2}.xml`)
+to `service_files/device/`. `ProcessServiceTemplate` now also logs a
+warning and injects `%METHOD%` on any future fallback so the defect
+is visible without a fixture.
+
+---
+
+### ~~G-013 — `GetCapabilitiesHTTP` ignored `<Category>` element~~ (FIXED)
+
+**Summary**: The Phase 1 implementation always returned the full
+all-categories response regardless of what the client requested in
+`<Category>`. A client requesting `Category=Device`, `Media`, `PTZ`,
+or `Events` received the wrong response shape with a 200 OK. An
+unknown category value should produce a SOAP fault; it instead
+returned the full response too. The fixture sends `Category=All`
+so the parity test passed by coincidence.
+
+**C reference**: `device_service.c:444-596` — five `icategory` dispatch
+paths, each with its own template file and different placeholder set.
+
+**Fixed in**: Phase 1 review —
+- Extracted `categoryCode(string) int` helper (testable, matches C's
+  `strcasecmp` dispatch via `strings.ToLower`).
+- `GetCapabilitiesHTTP` now dispatches on `icategory`:
+  1 → `GetDeviceCapabilities.xml`, 2 → `GetMediaCapabilities.xml`,
+  4 → `GetPTZCapabilities.xml` (or fault if `!PTZEnable`),
+  8 → `GetEventsCapabilities.xml`, 15 → full `GetCapabilities_{ptz,no_ptz}.xml`.
+- Unknown category → `SOAP-ENV:Receiver / ter:ActionNotSupported / ter:NoSuchService`.
+- Copied all four Category-specific C reference templates to
+  `service_files/device/`.
 
 ---
 

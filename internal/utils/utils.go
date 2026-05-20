@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fawad-mazhar/onvif-go/internal/logger"
 	"github.com/fawad-mazhar/onvif-go/internal/xml"
 )
 
@@ -16,13 +17,21 @@ import (
 // to the generic Empty.xml template. Resolves paths via the configurable
 // xml.ServiceTemplateDir / xml.GenericTemplateDir so callers (incl. test
 // harnesses under arbitrary CWDs) work without symlinks.
+//
+// When a fallback to Empty.xml occurs, a warning is logged and %METHOD% is
+// injected from methodName so the response XML is well-formed. Without this
+// injection callers would silently emit literal <%METHOD% />.
 func ProcessServiceTemplate(w http.ResponseWriter, serviceName, methodName string, replacements map[string]string) error {
 	templatePath := xml.ServiceTemplatePath(serviceName, methodName+".xml")
 	if !xml.FileExists(templatePath) {
-		// Fallback: empty <ns:MethodResponse/> via the generic template.
-		// Note this needs caller-supplied %METHOD% replacement to be
-		// well-formed; existing callers already pass it.
+		logger.Warnf("ProcessServiceTemplate: template not found for %s/%s (%s), falling back to Empty.xml",
+			serviceName, methodName, templatePath)
 		templatePath = filepath.Join(xml.GenericTemplateDir, "Empty.xml")
+		if replacements == nil {
+			replacements = map[string]string{"%METHOD%": methodName + "Response"}
+		} else if _, ok := replacements["%METHOD%"]; !ok {
+			replacements["%METHOD%"] = methodName + "Response"
+		}
 	}
 
 	response, err := xml.ProcessTemplate(templatePath, replacements)
