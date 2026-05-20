@@ -131,6 +131,18 @@ func WriteFault(w http.ResponseWriter, f Fault) error {
 	return err
 }
 
+// WriteEmpty writes an empty <ns:methodResponse/> body.
+func WriteEmpty(w http.ResponseWriter, ns, method string) error {
+	body, status, err := RenderEmpty(ns, method)
+	if err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/soap+xml; charset=utf-8")
+	w.WriteHeader(status)
+	_, err = w.Write(body)
+	return err
+}
+
 // WriteAuthenticationError writes a standard auth-failed fault.
 func WriteAuthenticationError(w http.ResponseWriter) error {
 	body, status, err := RenderAuthenticationError()

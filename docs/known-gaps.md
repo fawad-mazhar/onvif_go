@@ -6,26 +6,13 @@ makes the deferral safe.
 
 ## Opened 2026-05-12 (Phase 0a)
 
-### G-001 — Device-service auth exemption
+### ~~G-001 — Device-service auth exemption~~ (FIXED)
 
-**Summary**: C exempts five `device_service` ops from WS-UsernameToken
-validation (`GetSystemDateAndTime`, `GetUsers`, `GetCapabilities`,
-`GetServices`, `GetServiceCapabilities`). Go always requires auth when
-`user=` is configured.
-
-**Locations**:
-- C: `@/Users/fawadmazhar/github/codes/oma/playground/onvif_simple_server/onvif_simple_server.c:442-448`
-- Go: `@/Users/fawadmazhar/github/codes/oma/public/onvif_go/internal/server/onvif_server.go:368-385`
-
-**Masking**: `test/fixtures/config/server.conf` has `user=` commented out,
-so both servers skip auth entirely during fixture capture. Fault-mode
-fixtures would expose this; we don't currently capture those.
-
-**Fix window**: Phase 1 (device-service expansion) — add an exemption
-allow-list around the auth middleware. Needs a paired fixture-capture
-pass in authenticated mode.
-
-**Reference**: `@/Users/fawadmazhar/github/codes/oma/public/onvif_go/docs/auth-audit.md` §Blocker-#2.
+**Resolved 2026-05-20** (Phase 1). `createONVIFHandler` in
+`internal/server/onvif_server.go` now has an `authExempt` guard that
+skips WS-UsernameToken validation for the five C-exempt ops:
+`GetSystemDateAndTime`, `GetUsers`, `GetCapabilities`, `GetServices`,
+`GetServiceCapabilities`. Matches `onvif_simple_server.c:442-448`.
 
 ---
 
@@ -108,39 +95,28 @@ post-process captured fixtures to blank out the volatile fields.
 
 **Summary**: After G-003/G-004 fixes, every captured request now routes
 through the appropriate Go handler. None of the 21 captured fixtures
-match the C reference byte-for-byte yet — Go's templates under
-`service_files/<svc>/` predate the parity effort and were authored
-independently of the C source's `<svc>_service_files/`.
+matched the C reference byte-for-byte yet — Go's templates predate the
+parity effort.
 
-**Root cause — corrected diagnosis (Phase 0b follow-up)**: The initial
-diagnosis attributed the `GetProfiles` 329 vs 8304 byte gap entirely to
-template divergence. That was partially wrong. The Go config parser only
-understood dotted Go-format keys (`profile.0.name=`, `scope.0=`, etc.)
-and silently dropped every flat C-format key in the canonical fixture
-(`name=`, `scope=`, `ptz=`, `idle_state=`, `topic=`, …). Calling
-`LoadConfig("test/fixtures/config/server.conf")` returned `cfg.Profiles`
-of length 0. Fixed in the Phase 0b follow-up commit by adding
-`parseFlatConfig` to `internal/config/config.go` and the canary test
-`TestLoadConfig_CanonicalFixture`. After that fix profiles are loaded,
-so the byte gap on `GetProfiles` will narrow substantially when templates
-are aligned.
+**Phase 1 progress (2026-05-20)**:
+- All 9 `device_service` ops now pass golden diff (baseline 10/21).
+- Root changes: C verbatim templates in `service_files/device/`,
+  `ProcessTemplate` now replicates C `cat()` line-trim+concat semantics,
+  `ServiceContext` carries `Interface`/`EventsEnable`/audio/relay fields,
+  `GetServiceCapabilities` route added, `DeleteProfile` removed.
+- `GetCapabilities` and `GetServices` now select template variant based
+  on PTZ / Media2 / IncludeCapability flags (matching C logic).
+- `GetUsers` returns `send_empty_response` output via `WriteEmpty`.
+- `GetSystemDateAndTime` uses real UTC clock with no zero-padding
+  (`%d` semantics matching C `sprintf`).
+- `getInterfaceIP` falls back to `127.0.0.1` for unknown interface
+  names (handles `lo` on macOS where the name is `lo0`).
 
-**Examples** (from `TestGoldenDiff` summary, before config fix):
-- `device_service/GetUsers`        Go 252 vs C 223 bytes canonical
-- `device_service/GetCapabilities` Go 3081 vs C 2523 bytes
-- `media_service/GetProfiles`      Go 329 vs C 8304 bytes (zero profiles
-  loaded; both config parser gap AND template divergence)
+**Fix window**: Continuing across phases 2-5 for remaining services.
+Each phase brings one or two services to byte-identical parity.
 
-**Fix window**: Distributed across phases 1-5 of the parity plan.
-Each phase brings one or two services to byte-identical parity by
-either (a) replacing `service_files/<svc>/<op>.xml` with the C
-verbatim template, or (b) introducing the C-style header/middle/footer
-composer for list ops.
-
-**Regression-gate behaviour**: `test/fixtures/.baseline` records the
-set of currently-passing ops. As each phase lands, the baseline grows;
-any commit that drops an op from passing fails CI. The baseline is
-empty today (0/21).
+**Regression-gate**: `test/fixtures/.baseline` is now 10/21.
+Any commit that drops a passing op fails CI.
 
 ---
 

@@ -83,10 +83,10 @@ func TestComposeFromFiles_EmptyWithoutNone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ComposeFromFiles: %v", err)
 	}
-	// ProcessTemplate terminates each source line with \n, so single-line
-	// "H" and "F" templates render as "H\n" and "F\n" respectively.
-	if out != "H\nF\n" {
-		t.Errorf("empty-list without none = %q; want %q", out, "H\nF\n")
+	// ProcessTemplate trims and concatenates lines (cat() semantics).
+	// 'H' and 'F' don't start with '<' so each gets a space prefix.
+	if out != " H F" {
+		t.Errorf("empty-list without none = %q; want %q", out, " H F")
 	}
 }
 
@@ -106,7 +106,7 @@ func TestComposeFromFiles_PerItemOverridesGlobal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ComposeFromFiles: %v", err)
 	}
-	want := "[global][local]\n\n" // ProcessTemplate appends \n per line; header+footer empty lines trail
+	want := "[global][local]" // cat() semantics: trimmed+concatenated, non-'<' get space prefix
 	if !strings.Contains(out, "[global]") || !strings.Contains(out, "[local]") {
 		t.Errorf("got %q; want substrings %q", out, want)
 	}

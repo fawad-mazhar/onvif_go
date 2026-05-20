@@ -110,58 +110,65 @@ func handleServiceError(w http.ResponseWriter, err error, actionName string) {
 	}
 }
 
+// buildDeviceService maps a config.ServiceContext to a device.ServiceContext.
+// Audio source/output counts are derived from the profile list to match the
+// C reference's runtime computation.
+func buildDeviceService(cfg *config.ServiceContext) *device.ServiceContext {
+	audioSources, audioOutputs := 0, 0
+	for _, p := range cfg.Profiles {
+		if p.AudioEncoder != config.AudioNone {
+			audioSources = 1
+		}
+		if p.AudioDecoder != config.AudioNone {
+			audioOutputs = 1
+		}
+	}
+	return &device.ServiceContext{
+		Port:            cfg.Port,
+		Interface:       cfg.Interface,
+		Manufacturer:    cfg.Manufacturer,
+		Model:           cfg.Model,
+		FirmwareVer:     cfg.FirmwareVer,
+		SerialNum:       cfg.SerialNum,
+		HardwareID:      cfg.HardwareID,
+		Scopes:          cfg.Scopes,
+		PTZEnable:       cfg.PTZNode.Enable == 1,
+		Media2Enable:    cfg.AdvEnableMedia2 == 1,
+		EventsEnable:    device.EventsEnable(cfg.EventsEnable),
+		AudioSources:    audioSources,
+		AudioOutputs:    audioOutputs,
+		RelayOutputsNum: cfg.RelayOutputsNum,
+	}
+}
+
 // processSOAPRequest routes SOAP requests to the appropriate service handler
 func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soapAction, serviceName string, cfg *config.ServiceContext) {
 	switch serviceName {
 	case "device_service":
-		switch {
-		case soapAction == "GetServices":
-			deviceService := &device.ServiceContext{
-				Port: cfg.Port,
-			}
-			handleServiceError(w, deviceService.GetServicesHTTP(w), "GetServices")
-		case soapAction == "GetDeviceInformation":
-			deviceService := &device.ServiceContext{
-				Port:         cfg.Port,
-				Manufacturer: cfg.Manufacturer,
-				Model:        cfg.Model,
-				FirmwareVer:  cfg.FirmwareVer,
-				SerialNum:    cfg.SerialNum,
-				HardwareID:   cfg.HardwareID,
-				Scopes:       cfg.Scopes,
-				PTZEnable:    cfg.PTZNode.Enable == 1,
-				Media2Enable: cfg.AdvEnableMedia2 == 1,
-			}
-			handleServiceError(w, deviceService.GetDeviceInformationHTTP(w), "GetDeviceInformation")
-		case soapAction == "GetCapabilities":
-			deviceService := &device.ServiceContext{
-				Port: cfg.Port,
-			}
-			handleServiceError(w, deviceService.GetCapabilitiesHTTP(w), "GetCapabilities")
-		case soapAction == "GetScopes":
-			deviceService := &device.ServiceContext{
-				Port:   cfg.Port,
-				Scopes: cfg.Scopes,
-			}
-			handleServiceError(w, deviceService.GetScopesHTTP(w), "GetScopes")
-		case soapAction == "SystemReboot":
-			deviceService := &device.ServiceContext{}
-			handleServiceError(w, deviceService.SystemRebootHTTP(w), "SystemReboot")
-		case soapAction == "GetSystemDateAndTime":
-			deviceService := &device.ServiceContext{}
-			handleServiceError(w, deviceService.GetSystemDateAndTimeHTTP(w), "GetSystemDateAndTime")
-		case soapAction == "GetUsers":
-			deviceService := &device.ServiceContext{}
-			handleServiceError(w, deviceService.GetUsersHTTP(w), "GetUsers")
-		case soapAction == "GetWsdlUrl":
-			deviceService := &device.ServiceContext{}
-			handleServiceError(w, deviceService.GetWsdlURLHTTP(w), "GetWsdlURL")
-		case soapAction == "GetNetworkInterfaces":
-			deviceService := &device.ServiceContext{}
-			handleServiceError(w, deviceService.GetNetworkInterfacesHTTP(w), "GetNetworkInterfaces")
-		case soapAction == "GetDiscoveryMode":
-			deviceService := &device.ServiceContext{}
-			handleServiceError(w, deviceService.GetDiscoveryModeHTTP(w), "GetDiscoveryMode")
+		ds := buildDeviceService(cfg)
+		switch soapAction {
+		case "GetServices":
+			handleServiceError(w, ds.GetServicesHTTP(w, soapRequest), "GetServices")
+		case "GetServiceCapabilities":
+			handleServiceError(w, ds.GetServiceCapabilitiesHTTP(w), "GetServiceCapabilities")
+		case "GetDeviceInformation":
+			handleServiceError(w, ds.GetDeviceInformationHTTP(w), "GetDeviceInformation")
+		case "GetCapabilities":
+			handleServiceError(w, ds.GetCapabilitiesHTTP(w, soapRequest), "GetCapabilities")
+		case "GetScopes":
+			handleServiceError(w, ds.GetScopesHTTP(w), "GetScopes")
+		case "SystemReboot":
+			handleServiceError(w, ds.SystemRebootHTTP(w), "SystemReboot")
+		case "GetSystemDateAndTime":
+			handleServiceError(w, ds.GetSystemDateAndTimeHTTP(w), "GetSystemDateAndTime")
+		case "GetUsers":
+			handleServiceError(w, ds.GetUsersHTTP(w), "GetUsers")
+		case "GetWsdlUrl":
+			handleServiceError(w, ds.GetWsdlURLHTTP(w), "GetWsdlUrl")
+		case "GetNetworkInterfaces":
+			handleServiceError(w, ds.GetNetworkInterfacesHTTP(w), "GetNetworkInterfaces")
+		case "GetDiscoveryMode":
+			handleServiceError(w, ds.GetDiscoveryModeHTTP(w), "GetDiscoveryMode")
 		default:
 			sendUnsupportedResponse(w, cfg, "tds", soapAction)
 		}
@@ -209,11 +216,6 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 				Port: cfg.Port,
 			}
 			handleServiceError(w, mediaService.CreateProfileHTTP(w), "Media.CreateProfile")
-		case soapAction == "DeleteProfile":
-			mediaService := &media.ServiceContext{
-				Port: cfg.Port,
-			}
-			handleServiceError(w, mediaService.DeleteProfileHTTP(w), "Media.DeleteProfile")
 		default:
 			sendUnsupportedResponse(w, cfg, "trt", soapAction)
 		}
@@ -379,8 +381,14 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 			return
 		}
 
+		// G-001: device_service ops exempt from auth (matches C reference)
+		authExempt := serviceName == "device_service" &&
+			(soapAction == "GetSystemDateAndTime" || soapAction == "GetUsers" ||
+				soapAction == "GetCapabilities" || soapAction == "GetServices" ||
+				soapAction == "GetServiceCapabilities")
+
 		// Validate authentication if required
-		if cfg.User != "" && cfg.Password != "" {
+		if cfg.User != "" && cfg.Password != "" && !authExempt {
 			usernameToken, err := auth.ParseSOAPHeader(soapRequest)
 			if err != nil {
 				logger.Warnf("Failed to parse SOAP header: %v", err)

@@ -16,6 +16,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"strings"
 )
 
 // SOAP envelope namespaces accepted by ExtractBodyAction. Matches the
@@ -112,4 +113,31 @@ func ExtractUsernameToken(data []byte) (UsernameToken, error) {
 		return t, fmt.Errorf("password not found in SOAP header")
 	}
 	return t, nil
+}
+
+// ExtractBodyElement returns the trimmed text content of the first element
+// whose local name matches localName (case-insensitive) anywhere in data.
+// Returns ("", nil) when the element is absent — not an error.
+func ExtractBodyElement(data []byte, localName string) (string, error) {
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			return "", nil
+		}
+		if err != nil {
+			return "", fmt.Errorf("parse SOAP envelope: %w", err)
+		}
+		se, ok := tok.(xml.StartElement)
+		if !ok {
+			continue
+		}
+		if strings.EqualFold(se.Name.Local, localName) {
+			var v string
+			if err := dec.DecodeElement(&v, &se); err != nil {
+				return "", fmt.Errorf("decode %s: %w", localName, err)
+			}
+			return strings.TrimSpace(v), nil
+		}
+	}
 }

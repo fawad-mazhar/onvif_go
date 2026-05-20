@@ -45,7 +45,7 @@ func TestProcessTemplate_PlainText(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProcessTemplate: %v", err)
 	}
-	if want := "<resp>hello</resp>\n"; got != want {
+	if want := "<resp>hello</resp>"; got != want {
 		t.Errorf("got %q; want %q", got, want)
 	}
 }
@@ -57,7 +57,7 @@ func TestProcessTemplate_GzipDirect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProcessTemplate(.gz direct): %v", err)
 	}
-	if want := "<resp>world</resp>\n"; got != want {
+	if want := "<resp>world</resp>"; got != want {
 		t.Errorf("got %q; want %q", got, want)
 	}
 }
@@ -70,7 +70,7 @@ func TestProcessTemplate_GzipFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProcessTemplate(.gz fallback): %v", err)
 	}
-	if want := "<resp>fallback</resp>\n"; got != want {
+	if want := "<resp>fallback</resp>"; got != want {
 		t.Errorf("got %q; want %q", got, want)
 	}
 }
@@ -83,7 +83,7 @@ func TestProcessTemplate_PlainPreferredOverGzip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProcessTemplate: %v", err)
 	}
-	if want := "<resp>plain</resp>\n"; got != want {
+	if want := "<resp>plain</resp>"; got != want {
 		t.Errorf("plain file should be preferred over .gz; got %q", got)
 	}
 }
@@ -150,7 +150,7 @@ func TestProcessTemplate_MultiLinePlaceholders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProcessTemplate multi: %v", err)
 	}
-	if want := "line1 alpha\nline2 beta\n"; got != want {
+	if want := " line1 alpha line2 beta"; got != want {
 		t.Errorf("got %q; want %q", got, want)
 	}
 }

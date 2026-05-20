@@ -76,8 +76,18 @@ func ProcessTemplate(filename string, replacements map[string]string) (string, e
 			line = strings.ReplaceAll(line, placeholder, replacement)
 		}
 
+		// Replicate C cat() semantics: trim each line, skip empty lines, then
+		// concatenate — elements starting with '<' are joined directly, all
+		// other text gets a single leading space (matching the C reference output
+		// so that c14n comparison against captured C fixtures passes).
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if !strings.HasPrefix(line, "<") {
+			result.WriteByte(' ')
+		}
 		result.WriteString(line)
-		result.WriteString("\n")
 	}
 
 	if err := scanner.Err(); err != nil {

@@ -1,1 +1,10 @@
-
+device_service/GetCapabilities
+device_service/GetDeviceInformation
+device_service/GetDiscoveryMode
+device_service/GetNetworkInterfaces
+device_service/GetScopes
+device_service/GetServices
+device_service/GetSystemDateAndTime
+device_service/GetUsers
+device_service/GetWsdlUrl
+events_service/GetServiceCapabilities
