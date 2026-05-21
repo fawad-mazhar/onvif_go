@@ -27,10 +27,13 @@ func ProcessServiceTemplate(w http.ResponseWriter, serviceName, methodName strin
 		logger.Warnf("ProcessServiceTemplate: template not found for %s/%s (%s), falling back to Empty.xml",
 			serviceName, methodName, templatePath)
 		templatePath = filepath.Join(xml.GenericTemplateDir, "Empty.xml")
-		if replacements == nil {
-			replacements = map[string]string{"%METHOD%": methodName + "Response"}
-		} else if _, ok := replacements["%METHOD%"]; !ok {
-			replacements["%METHOD%"] = methodName + "Response"
+		if _, ok := replacements["%METHOD%"]; !ok {
+			cloned := make(map[string]string, len(replacements)+1)
+			for k, v := range replacements {
+				cloned[k] = v
+			}
+			cloned["%METHOD%"] = methodName + "Response"
+			replacements = cloned
 		}
 	}
 
