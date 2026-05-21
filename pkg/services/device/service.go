@@ -119,7 +119,7 @@ func (s *ServiceContext) GetServicesHTTP(w http.ResponseWriter, soapRequest stri
 	}
 	media2Addr := "http://" + ip + port + "/onvif/media2_service"
 
-	includeCapability, _ := xmlfault.ExtractBodyElement([]byte(soapRequest), "IncludeCapability")
+	includeCapability, _ := xmlfault.ExtractElement([]byte(soapRequest), "IncludeCapability")
 	withCap := strings.EqualFold(includeCapability, "true")
 
 	pull, base := s.eventsFlags()
@@ -208,7 +208,7 @@ func (s *ServiceContext) GetCapabilitiesHTTP(w http.ResponseWriter, soapRequest 
 
 	pull, base := s.eventsFlags()
 
-	category, _ := xmlfault.ExtractBodyElement([]byte(soapRequest), "Category")
+	category, _ := xmlfault.ExtractElement([]byte(soapRequest), "Category")
 	icategory := categoryCode(category)
 	if icategory == -1 {
 		return xmlfault.WriteFault(w, xmlfault.Fault{

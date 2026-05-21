@@ -362,7 +362,7 @@ func (s *WSDServer) processMessage(message string, from *net.UDPAddr) {
 // bug when the <a:Action> prefix was used (advanced by len("<wsa:Action>")
 // instead of len("<a:Action>"), silently skipping the first two bytes).
 func (s *WSDServer) parseSOAPAction(message string) string {
-	v, _ := xml.ExtractBodyElement([]byte(message), "Action")
+	v, _ := xml.ExtractElement([]byte(message), "Action")
 	return v
 }
 
@@ -371,7 +371,7 @@ func (s *WSDServer) parseSOAPAction(message string) string {
 // G-011: replaces the brittle string-index parser with the same off-by-N
 // bug as parseSOAPAction.
 func (s *WSDServer) parseMessageID(message string) string {
-	v, _ := xml.ExtractBodyElement([]byte(message), "MessageID")
+	v, _ := xml.ExtractElement([]byte(message), "MessageID")
 	return v
 }
 

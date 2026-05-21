@@ -197,7 +197,7 @@ the handler layer and reject the character set: `;`, `$(...)`, `` `...` ``,
 **Resolved 2026-05-21** (Phase 2).
 
 1. **`parseSOAPAction` / `parseMessageID`**: replaced string-index parsers
-   with one-liner delegates to `xml.ExtractBodyElement` (backed by
+   with one-liner delegates to `xml.ExtractElement` (backed by
    `encoding/xml`). Accepts any namespace prefix; the off-by-N bug (advancing
    by `len("<wsa:Action>")` after matching `<a:Action>`) is gone.
 
@@ -259,6 +259,32 @@ paths, each with its own template file and different placeholder set.
 - Unknown category → `SOAP-ENV:Receiver / ter:ActionNotSupported / ter:NoSuchService`.
 - Copied all four Category-specific C reference templates to
   `service_files/device/`.
+
+---
+
+### G-014 — No graceful shutdown for HTTP and Notification servers
+
+**Summary**: After the G-011 signal-handler refactor, `StartWSDServer` accepts
+a `context.Context` and sends WS-Discovery Bye before exiting. The HTTP and
+Notification servers (`StartHTTPServer`, `StartNotificationServer`) do not
+receive a context and are killed mid-flight when `main()` exits after
+`<-ctx.Done()`. In-flight SOAP requests can be truncated and the Notification
+server connection state is abandoned.
+
+**Locations**:
+- `cmd/onvif-server/main.go:41-54` (HTTP and Notification goroutines)
+- `internal/server/onvif_server.go` (`StartHTTPServer`)
+- `internal/server/notification_server.go` (`StartNotificationServer`)
+
+**Masking**: No integration tests exercise the shutdown path. The 1-second
+`time.Sleep` that existed in the original main.go was the only protection;
+it was removed in Phase 2.
+
+**Fix window**: Phase 3 (HTTP server parity) or Phase 5 (Events).
+- Replace `net/http.ListenAndServe` with `http.Server.Shutdown(ctx)` pattern
+  in `StartHTTPServer`.
+- Propagate the same ctx to `StartNotificationServer`.
+- `main.go` waits for all goroutines via a `sync.WaitGroup` before exiting.
 
 ---
 

@@ -115,10 +115,13 @@ func ExtractUsernameToken(data []byte) (UsernameToken, error) {
 	return t, nil
 }
 
-// ExtractBodyElement returns the trimmed text content of the first element
+// ExtractElement returns the trimmed text content of the first element
 // whose local name matches localName (case-insensitive) anywhere in data.
 // Returns ("", nil) when the element is absent — not an error.
-func ExtractBodyElement(data []byte, localName string) (string, error) {
+//
+// Note: the search is document-wide; elements in the SOAP Header (e.g.
+// wsa:Action, wsa:MessageID) are found just as well as Body children.
+func ExtractElement(data []byte, localName string) (string, error) {
 	dec := xml.NewDecoder(bytes.NewReader(data))
 	for {
 		tok, err := dec.Token()
