@@ -16,18 +16,13 @@ skips WS-UsernameToken validation for the five C-exempt ops:
 
 ---
 
-### G-002 — Plain-text password accepted
+### ~~G-002 — Plain-text password accepted~~ (FIXED)
 
-**Summary**: Go's `ValidateUsernameToken` accepts a plain-text password
-with no Nonce/Created fields (`@/Users/fawadmazhar/github/codes/oma/public/onvif_go/internal/auth/auth.go:42-48`).
-C rejects this path (`auth_error = 3 or 4`).
+**Resolved 2026-05-21** (Phase 3).
 
-**Masking**: Go is more permissive; fixtures captured with fresh
-digest tokens don't exercise this path.
-
-**Fix window**: Phase 3 (auth hardening) — delete the 6-line plain-text branch.
-Phase 0e window lapsed without action; deferred here to avoid scope-creep
-during media/PTZ parity work.
+Removed the 6-line plain-text branch from `ValidateUsernameToken`
+(`internal/auth/auth.go`). Only digest auth (Nonce + Created + SHA1)
+is now accepted, matching C's `auth_error = 3/4` rejection.
 
 ---
 
@@ -53,18 +48,15 @@ The gap shifted from parsing to handler output; tracked as G-008.
 
 ---
 
-### G-005 — Fault rendering doesn't know device/service address
+### ~~G-005 — Fault rendering doesn't know device/service address~~ (FIXED)
 
-**Summary**: `sendSOAPError` renders `Fault.xml` with empty
-`%ADDRESS%` / `%SERVICE%` placeholders because the handler layer
-doesn't thread the request's `Host:` header through. The scrubber
-normalizes host URLs on both sides so diffs still work, but the
-Go fault body is technically empty-stringed where C fills in
-`http://host:port/onvif/<svc>`.
+**Resolved 2026-05-21** (Phase 3).
 
-**Fix window**: Phase 2/3 — plumb `*http.Request` (or at minimum the
-`Host:` header) down into `sendSOAPError`. Phase 1 left the in-code
-comment at `onvif_server.go:320-321` stale; updated separately.
+`sendSOAPError(w, r, msg)` now derives `DeviceAddress` and
+`ServiceAddress` from `r.Host` + `r.URL.Path`, filling
+`Fault.xml`'s `%ADDRESS%` / `%SERVICE%` placeholders correctly.
+`*http.Request` threaded through `handleServiceError`,
+`sendUnsupportedResponse`, and `handleUnsupportedService`.
 
 ---
 
@@ -124,28 +116,15 @@ Any commit that drops a passing op fails CI.
 
 ---
 
-### G-009 — Latent string-index parser in `utils.ExtractSOAPElement`
+### ~~G-009 — Latent string-index parser in `utils.ExtractSOAPElement`~~ (FIXED)
 
-**Summary**: `internal/utils/utils.go:ExtractSOAPElement` uses the same
-prefix-enumeration pattern as the now-fixed G-003/G-004:
+**Resolved 2026-05-21** (Phase 3).
 
-```go
-for _, ns := range []string{"trt:", "tt:", "ter:", "tns1:"} {
-    openTag := "<" + ns + elementName + ">"
-```
-
-Two callers in `pkg/services/media/service.go` extract `<ProfileToken>`
-from `GetStreamUri` and `GetSnapshotUri` requests. Works for the
-captured fixtures (which use `<trt:ProfileToken>`), breaks silently for
-any other prefix.
-
-**Masking**: Current test fixtures use the `trt:` prefix throughout;
-the harness doesn't test alternate prefixes for media ops.
-
-**Fix window**: Phase 2 (Media service) — the media handlers will be
-substantially rewritten in that phase. Replace with a call to
-`internal/xml.ExtractElementValue` (backed by `encoding/xml`, same
-pattern as `ExtractBodyAction`). Don't gate Phase 0b on this.
+`utils.ExtractSOAPElement` deleted from `internal/utils/utils.go`.
+Both callers in `pkg/services/media/service.go` (`GetProfileHTTP`,
+`getMediaUriHTTP`) now call `xml.ExtractElement` (namespace-agnostic,
+`encoding/xml` backed). `sendMediaFault` also migrated from an inline
+`fmt.Sprintf` fault body to `xmlfault.WriteFault` for consistency.
 
 ---
 

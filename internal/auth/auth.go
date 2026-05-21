@@ -37,15 +37,6 @@ func (s *ServiceContext) ValidateUsernameToken(token UsernameToken) bool {
 		return false
 	}
 
-	// If the password is provided in plain text, validate directly
-	if token.Password != "" && token.Nonce == "" && token.Created == "" {
-		if token.Password == s.Password {
-			return true
-		}
-		logger.Warnf("Password mismatch")
-		return false
-	}
-
 	// Validate password digest
 	if token.Nonce != "" && token.Created != "" {
 		// Decode the nonce from base64

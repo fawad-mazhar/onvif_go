@@ -104,10 +104,10 @@ func StartHTTPServer(cfg *config.ServiceContext) error {
 }
 
 // handleServiceError handles errors from service calls
-func handleServiceError(w http.ResponseWriter, err error, actionName string) {
+func handleServiceError(w http.ResponseWriter, r *http.Request, err error, actionName string) {
 	if err != nil {
 		logger.Errorf("Error handling %s: %v", actionName, err)
-		sendSOAPError(w, "Internal server error")
+		sendSOAPError(w, r, "Internal server error")
 	}
 }
 
@@ -149,29 +149,29 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 		ds := buildDeviceService(cfg)
 		switch soapAction {
 		case "GetServices":
-			handleServiceError(w, ds.GetServicesHTTP(w, soapRequest), "GetServices")
+			handleServiceError(w, r, ds.GetServicesHTTP(w, soapRequest), "GetServices")
 		case "GetServiceCapabilities":
-			handleServiceError(w, ds.GetServiceCapabilitiesHTTP(w), "GetServiceCapabilities")
+			handleServiceError(w, r, ds.GetServiceCapabilitiesHTTP(w), "GetServiceCapabilities")
 		case "GetDeviceInformation":
-			handleServiceError(w, ds.GetDeviceInformationHTTP(w), "GetDeviceInformation")
+			handleServiceError(w, r, ds.GetDeviceInformationHTTP(w), "GetDeviceInformation")
 		case "GetCapabilities":
-			handleServiceError(w, ds.GetCapabilitiesHTTP(w, soapRequest), "GetCapabilities")
+			handleServiceError(w, r, ds.GetCapabilitiesHTTP(w, soapRequest), "GetCapabilities")
 		case "GetScopes":
-			handleServiceError(w, ds.GetScopesHTTP(w), "GetScopes")
+			handleServiceError(w, r, ds.GetScopesHTTP(w), "GetScopes")
 		case "SystemReboot":
-			handleServiceError(w, ds.SystemRebootHTTP(w), "SystemReboot")
+			handleServiceError(w, r, ds.SystemRebootHTTP(w), "SystemReboot")
 		case "GetSystemDateAndTime":
-			handleServiceError(w, ds.GetSystemDateAndTimeHTTP(w), "GetSystemDateAndTime")
+			handleServiceError(w, r, ds.GetSystemDateAndTimeHTTP(w), "GetSystemDateAndTime")
 		case "GetUsers":
-			handleServiceError(w, ds.GetUsersHTTP(w), "GetUsers")
+			handleServiceError(w, r, ds.GetUsersHTTP(w), "GetUsers")
 		case "GetWsdlUrl":
-			handleServiceError(w, ds.GetWsdlURLHTTP(w), "GetWsdlUrl")
+			handleServiceError(w, r, ds.GetWsdlURLHTTP(w), "GetWsdlUrl")
 		case "GetNetworkInterfaces":
-			handleServiceError(w, ds.GetNetworkInterfacesHTTP(w), "GetNetworkInterfaces")
+			handleServiceError(w, r, ds.GetNetworkInterfacesHTTP(w), "GetNetworkInterfaces")
 		case "GetDiscoveryMode":
-			handleServiceError(w, ds.GetDiscoveryModeHTTP(w), "GetDiscoveryMode")
+			handleServiceError(w, r, ds.GetDiscoveryModeHTTP(w), "GetDiscoveryMode")
 		default:
-			sendUnsupportedResponse(w, cfg, "tds", soapAction)
+			sendUnsupportedResponse(w, r, cfg, "tds", soapAction)
 		}
 	case "media_service":
 		switch {
@@ -182,43 +182,43 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 			soapAction == "SetVideoEncoderConfiguration" ||
 			soapAction == "SetAudioEncoderConfiguration" ||
 			soapAction == "SetAudioOutputConfiguration"):
-			sendSOAPError(w, "Action failed")
+			sendSOAPError(w, r, "Action failed")
 		case soapAction == "GetServiceCapabilities":
 			mediaService := &media.ServiceContext{
 				Port: cfg.Port,
 			}
-			handleServiceError(w, mediaService.GetServiceCapabilitiesHTTP(w), "Media.GetServiceCapabilities")
+			handleServiceError(w, r, mediaService.GetServiceCapabilitiesHTTP(w), "Media.GetServiceCapabilities")
 		case soapAction == "GetProfiles":
 			mediaService := &media.ServiceContext{
 				Port:     cfg.Port,
 				Profiles: convertMediaProfiles(cfg.Profiles),
 			}
-			handleServiceError(w, mediaService.GetProfilesHTTP(w), "Media.GetProfiles")
+			handleServiceError(w, r, mediaService.GetProfilesHTTP(w), "Media.GetProfiles")
 		case soapAction == "GetProfile":
 			mediaService := &media.ServiceContext{
 				Port:     cfg.Port,
 				Profiles: convertMediaProfiles(cfg.Profiles),
 			}
-			handleServiceError(w, mediaService.GetProfileHTTP(w, soapRequest), "Media.GetProfile")
+			handleServiceError(w, r, mediaService.GetProfileHTTP(w, soapRequest), "Media.GetProfile")
 		case soapAction == "GetStreamUri":
 			mediaService := &media.ServiceContext{
 				Port:     cfg.Port,
 				Profiles: convertMediaProfiles(cfg.Profiles),
 			}
-			handleServiceError(w, mediaService.GetStreamUriHTTP(w, soapRequest), "Media.GetStreamUri")
+			handleServiceError(w, r, mediaService.GetStreamUriHTTP(w, soapRequest), "Media.GetStreamUri")
 		case soapAction == "GetSnapshotUri":
 			mediaService := &media.ServiceContext{
 				Port:     cfg.Port,
 				Profiles: convertMediaProfiles(cfg.Profiles),
 			}
-			handleServiceError(w, mediaService.GetSnapshotUriHTTP(w, soapRequest), "Media.GetSnapshotUri")
+			handleServiceError(w, r, mediaService.GetSnapshotUriHTTP(w, soapRequest), "Media.GetSnapshotUri")
 		case soapAction == "CreateProfile":
 			mediaService := &media.ServiceContext{
 				Port: cfg.Port,
 			}
-			handleServiceError(w, mediaService.CreateProfileHTTP(w), "Media.CreateProfile")
+			handleServiceError(w, r, mediaService.CreateProfileHTTP(w), "Media.CreateProfile")
 		default:
-			sendUnsupportedResponse(w, cfg, "trt", soapAction)
+			sendUnsupportedResponse(w, r, cfg, "trt", soapAction)
 		}
 	case "ptz_service":
 		switch {
@@ -226,15 +226,15 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 			ptzService := &ptz.ServiceContext{
 				Port: cfg.Port,
 			}
-			handleServiceError(w, ptzService.GetServiceCapabilitiesHTTP(w), "PTZ.GetServiceCapabilities")
+			handleServiceError(w, r, ptzService.GetServiceCapabilitiesHTTP(w), "PTZ.GetServiceCapabilities")
 		case soapAction == "GetNodes":
 			ptzService := &ptz.ServiceContext{
 				Port:     cfg.Port,
 				PTZNodes: convertPTZNodes(cfg.PTZNode),
 			}
-			handleServiceError(w, ptzService.GetNodesHTTP(w), "PTZ.GetNodes")
+			handleServiceError(w, r, ptzService.GetNodesHTTP(w), "PTZ.GetNodes")
 		default:
-			sendUnsupportedResponse(w, cfg, "tptz", soapAction)
+			sendUnsupportedResponse(w, r, cfg, "tptz", soapAction)
 		}
 	case "events_service":
 		eventsService := events.NewServiceContext()
@@ -244,23 +244,23 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 
 		switch {
 		case soapAction == "GetServiceCapabilities":
-			handleServiceError(w, eventsService.GetServiceCapabilitiesHTTP(w), "Events.GetServiceCapabilities")
+			handleServiceError(w, r, eventsService.GetServiceCapabilitiesHTTP(w), "Events.GetServiceCapabilities")
 		case soapAction == "CreatePullPointSubscription":
-			handleServiceError(w, eventsService.CreatePullPointSubscriptionHTTP(w, r), "Events.CreatePullPointSubscription")
+			handleServiceError(w, r, eventsService.CreatePullPointSubscriptionHTTP(w, r), "Events.CreatePullPointSubscription")
 		case soapAction == "PullMessages":
-			handleServiceError(w, eventsService.PullMessagesHTTP(w, r), "Events.PullMessages")
+			handleServiceError(w, r, eventsService.PullMessagesHTTP(w, r), "Events.PullMessages")
 		case soapAction == "Subscribe":
-			handleServiceError(w, eventsService.SubscribeHTTP(w, r), "Events.Subscribe")
+			handleServiceError(w, r, eventsService.SubscribeHTTP(w, r), "Events.Subscribe")
 		case soapAction == "Renew":
-			handleServiceError(w, eventsService.RenewHTTP(w, r), "Events.Renew")
+			handleServiceError(w, r, eventsService.RenewHTTP(w, r), "Events.Renew")
 		case soapAction == "Unsubscribe":
-			handleServiceError(w, eventsService.UnsubscribeHTTP(w, r), "Events.Unsubscribe")
+			handleServiceError(w, r, eventsService.UnsubscribeHTTP(w, r), "Events.Unsubscribe")
 		case soapAction == "GetEventProperties":
-			handleServiceError(w, eventsService.GetEventPropertiesHTTP(w), "Events.GetEventProperties")
+			handleServiceError(w, r, eventsService.GetEventPropertiesHTTP(w), "Events.GetEventProperties")
 		case soapAction == "SetSynchronizationPoint":
-			handleServiceError(w, eventsService.SetSynchronizationPointHTTP(w, r), "Events.SetSynchronizationPoint")
+			handleServiceError(w, r, eventsService.SetSynchronizationPointHTTP(w, r), "Events.SetSynchronizationPoint")
 		default:
-			sendUnsupportedResponse(w, cfg, "tev", soapAction)
+			sendUnsupportedResponse(w, r, cfg, "tev", soapAction)
 		}
 	case "deviceio_service":
 		switch {
@@ -268,18 +268,18 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 			deviceioService := &deviceio.ServiceContext{
 				Port: cfg.Port,
 			}
-			handleServiceError(w, deviceioService.GetServiceCapabilitiesHTTP(w), "DeviceIO.GetServiceCapabilities")
+			handleServiceError(w, r, deviceioService.GetServiceCapabilitiesHTTP(w), "DeviceIO.GetServiceCapabilities")
 		case soapAction == "GetRelayOutputs":
 			deviceioService := &deviceio.ServiceContext{
 				Port:         cfg.Port,
 				RelayOutputs: convertRelayOutputs(cfg.RelayOutputs),
 			}
-			handleServiceError(w, deviceioService.GetRelayOutputsHTTP(w), "DeviceIO.GetRelayOutputs")
+			handleServiceError(w, r, deviceioService.GetRelayOutputsHTTP(w), "DeviceIO.GetRelayOutputs")
 		default:
-			sendUnsupportedResponse(w, cfg, "tmd", soapAction)
+			sendUnsupportedResponse(w, r, cfg, "tmd", soapAction)
 		}
 	default:
-		handleUnsupportedService(w, serviceName)
+		handleUnsupportedService(w, r, serviceName)
 	}
 }
 
@@ -288,16 +288,16 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 //     identical to C's send_empty_response(ns, method).
 //   - adv_fault_if_unknown == 1: send an action-failed SOAP fault,
 //     identical to C's send_action_failed_fault(service, -1).
-func sendUnsupportedResponse(w http.ResponseWriter, cfg *config.ServiceContext, ns, action string) {
+func sendUnsupportedResponse(w http.ResponseWriter, r *http.Request, cfg *config.ServiceContext, ns, action string) {
 	logger.Warnf("Unsupported SOAP action: %s", action)
 	if cfg.AdvFaultIfUnknown == 1 {
-		sendSOAPError(w, "Action failed")
+		sendSOAPError(w, r, "Action failed")
 		return
 	}
 	body, status, err := xmlfault.RenderEmpty(ns, action)
 	if err != nil {
 		logger.Warnf("sendUnsupportedResponse RenderEmpty: %v", err)
-		sendSOAPError(w, "Internal server error")
+		sendSOAPError(w, r, "Internal server error")
 		return
 	}
 	w.Header().Set("Content-Type", "application/soap+xml; charset=utf-8")
@@ -306,27 +306,28 @@ func sendUnsupportedResponse(w http.ResponseWriter, cfg *config.ServiceContext, 
 }
 
 // handleUnsupportedService handles unsupported services with consistent logging
-func handleUnsupportedService(w http.ResponseWriter, serviceName string) {
+func handleUnsupportedService(w http.ResponseWriter, r *http.Request, serviceName string) {
 	logger.Warnf("Unsupported service: %s", serviceName)
-	sendSOAPError(w, "Unsupported service")
+	sendSOAPError(w, r, "Unsupported service")
 }
 
 // sendSOAPError emits an ONVIF-spec-compliant SOAP fault via the
 // structured xmlfault library. Byte-compatible with the C reference
 // server's send_fault() generic path.
 //
-// The fault is rendered without a known device/service address (the
-// handler layer does not currently thread the request's Host header).
-// Fault.xml's %ADDRESS%/%SERVICE% placeholders will be left empty;
-// the scrubber normalizes these in diff so correctness is not affected.
-// G-005: request context plumbing is deferred to Phase 2/3.
-func sendSOAPError(w http.ResponseWriter, message string) {
+// G-005 (Phase 3): DeviceAddress and ServiceAddress are now derived
+// from r.Host + r.URL.Path so Fault.xml's %ADDRESS%/%SERVICE%
+// placeholders are filled correctly instead of being left empty.
+func sendSOAPError(w http.ResponseWriter, r *http.Request, message string) {
+	schemeHost := "http://" + r.Host
 	if err := xmlfault.WriteFault(w, xmlfault.Fault{
-		RecSend:   "Receiver",
-		Subcode:   "ter:Action",
-		SubcodeEx: "ter:ActionFailed",
-		Reason:    "Action failed",
-		Detail:    message,
+		DeviceAddress:  schemeHost + "/onvif",
+		ServiceAddress: schemeHost + r.URL.Path,
+		RecSend:        "Receiver",
+		Subcode:        "ter:Action",
+		SubcodeEx:      "ter:ActionFailed",
+		Reason:         "Action failed",
+		Detail:         message,
 	}); err != nil {
 		logger.Warnf("sendSOAPError: %v", err)
 	}
@@ -370,7 +371,7 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 		soapRequest := string(body)
 		if soapRequest == "" {
 			logger.Warnf("Empty SOAP request")
-			sendSOAPError(w, "Empty SOAP request")
+			sendSOAPError(w, r, "Empty SOAP request")
 			return
 		}
 
@@ -378,7 +379,7 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 		soapAction := parseSOAPAction(soapRequest)
 		if soapAction == "" {
 			logger.Warnf("Failed to parse SOAP action")
-			sendSOAPError(w, "Failed to parse SOAP action")
+			sendSOAPError(w, r, "Failed to parse SOAP action")
 			return
 		}
 
@@ -413,7 +414,7 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 			// Validate timestamp to prevent replay attacks
 			if !auth.ValidateNonceTimestamp(usernameToken.Created, NonceMaxAgeSeconds) { // 5 minutes max age
 				logger.Warnf("Nonce timestamp validation failed")
-				sendSOAPError(w, "Nonce timestamp validation failed")
+				sendSOAPError(w, r, "Nonce timestamp validation failed")
 				return
 			}
 		}

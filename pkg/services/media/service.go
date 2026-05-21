@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/fawad-mazhar/onvif-go/internal/utils"
+	xmlfault "github.com/fawad-mazhar/onvif-go/internal/xml"
 )
 
 // ServiceContext holds the configuration and state for the media service
@@ -87,7 +88,7 @@ func (s *ServiceContext) GetProfilesHTTP(w http.ResponseWriter) error {
 // GetProfileHTTP handles the GetProfile ONVIF media service method via HTTP
 func (s *ServiceContext) GetProfileHTTP(w http.ResponseWriter, soapRequest string) error {
 	// Extract ProfileToken from SOAP request
-	profileToken := utils.ExtractSOAPElement(soapRequest, "ProfileToken")
+	profileToken, _ := xmlfault.ExtractElement([]byte(soapRequest), "ProfileToken")
 	if profileToken == "" {
 		return sendMediaFault(w, "Sender", "ter:InvalidArgVal", "ter:NoProfile", "No profile", "The requested profile token does not exist")
 	}
@@ -124,7 +125,7 @@ func (s *ServiceContext) findProfileByToken(profileToken string) (*Profile, stri
 // getMediaUriHTTP is a generic helper for GetStreamUri and GetSnapshotUri
 func (s *ServiceContext) getMediaUriHTTP(w http.ResponseWriter, soapRequest, methodName, urlField, placeholder, errorMsg string) error {
 	// Extract ProfileToken from SOAP request
-	profileToken := utils.ExtractSOAPElement(soapRequest, "ProfileToken")
+	profileToken, _ := xmlfault.ExtractElement([]byte(soapRequest), "ProfileToken")
 	if profileToken == "" {
 		return sendMediaFault(w, "Sender", "ter:InvalidArgVal", "ter:NoProfile", "No profile", "The requested profile does not exist")
 	}
@@ -183,33 +184,14 @@ func (s *ServiceContext) DeleteProfileHTTP(w http.ResponseWriter) error {
 }
 
 // sendMediaFault sends a SOAP fault response for media service errors
-func sendMediaFault(w http.ResponseWriter, code, subcode, subcodeValue, reason, detail string) error {
-	w.Header().Set("Content-Type", "application/soap+xml; charset=utf-8")
-	w.WriteHeader(http.StatusInternalServerError)
-	faultXML := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
-<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope"
-                   xmlns:ter="http://www.onvif.org/ver10/error">
-    <SOAP-ENV:Body>
-        <SOAP-ENV:Fault>
-            <SOAP-ENV:Code>
-                <SOAP-ENV:Value>SOAP-ENV:%s</SOAP-ENV:Value>
-                <SOAP-ENV:Subcode>
-                    <SOAP-ENV:Value>%s</SOAP-ENV:Value>
-                    <SOAP-ENV:Subcode>
-                        <SOAP-ENV:Value>%s</SOAP-ENV:Value>
-                    </SOAP-ENV:Subcode>
-                </SOAP-ENV:Subcode>
-            </SOAP-ENV:Code>
-            <SOAP-ENV:Reason>
-                <SOAP-ENV:Text xml:lang="en">%s</SOAP-ENV:Text>
-            </SOAP-ENV:Reason>
-            <SOAP-ENV:Detail>
-                <SOAP-ENV:Text>%s</SOAP-ENV:Text>
-            </SOAP-ENV:Detail>
-        </SOAP-ENV:Fault>
-    </SOAP-ENV:Body>
-</SOAP-ENV:Envelope>`, code, subcode, subcodeValue, reason, detail)
-
-	_, err := w.Write([]byte(faultXML))
-	return err
+// using the shared structured xmlfault renderer (Fault.xml template).
+func sendMediaFault(w http.ResponseWriter, recSend, subcode, subcodeEx, reason, detail string) error {
+	return xmlfault.WriteFault(w, xmlfault.Fault{
+		Service:   "media_service",
+		RecSend:   recSend,
+		Subcode:   subcode,
+		SubcodeEx: subcodeEx,
+		Reason:    reason,
+		Detail:    detail,
+	})
 }
