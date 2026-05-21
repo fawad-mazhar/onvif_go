@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"net"
 	"strings"
 	"testing"
@@ -26,7 +27,7 @@ func TestWSDProbeResponse(t *testing.T) {
 
 	// Start WS-Discovery server in background
 	go func() {
-		err := server.StartWSDServer(cfg)
+		err := server.StartWSDServer(context.Background(), cfg)
 		if err != nil {
 			t.Logf("WS-Discovery server failed to start: %v", err)
 		}
@@ -146,7 +147,7 @@ func TestWSDHelloAnnouncement(t *testing.T) {
 	}
 
 	// Create WSD server instance for testing
-	wsdServer, err := server.NewWSDServer(cfg)
+	wsdServer, err := server.NewWSDServer(context.Background(), cfg)
 	if err != nil {
 		t.Logf("WS-Discovery Hello test failed (server creation): %v", err)
 		t.Skip("Skipping WS-Discovery Hello test - server creation failed")

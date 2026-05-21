@@ -5,13 +5,10 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net"
-	"os"
-	"os/signal"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"golang.org/x/net/ipv4"
@@ -69,38 +66,32 @@ type WSDServer struct {
 	deviceUUID    string
 	msgNumber     int64
 	ctx           context.Context
-	cancel        context.CancelFunc
 	wg            sync.WaitGroup
 }
 
-// StartWSDServer starts the WS-Discovery UDP multicast server
-func StartWSDServer(cfg *config.ServiceContext) error {
-	// Create WS-Discovery server instance
-	server, err := NewWSDServer(cfg)
+// StartWSDServer starts the WS-Discovery UDP multicast server.
+// ctx controls the server lifetime: cancel it to trigger a graceful Bye
+// and shutdown. The caller (main) is responsible for signal handling.
+func StartWSDServer(ctx context.Context, cfg *config.ServiceContext) error {
+	server, err := NewWSDServer(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create WS-Discovery server: %v", err)
 	}
-
-	// Start the server
 	return server.Start()
 }
 
-// NewWSDServer creates a new WS-Discovery server instance
-func NewWSDServer(cfg *config.ServiceContext) (*WSDServer, error) {
-	// Get local IP address
+// NewWSDServer creates a new WS-Discovery server instance.
+// ctx is owned by the caller; the server does not cancel it.
+func NewWSDServer(ctx context.Context, cfg *config.ServiceContext) (*WSDServer, error) {
 	localIP, err := getLocalIP()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get local IP: %v", err)
 	}
 
-	// Generate device UUID if not provided
 	deviceUUID := cfg.UUID
 	if deviceUUID == "" {
 		deviceUUID = generateUUID()
 	}
-
-	// Create context for graceful shutdown
-	ctx, cancel := context.WithCancel(context.Background())
 
 	server := &WSDServer{
 		config:     cfg,
@@ -108,7 +99,6 @@ func NewWSDServer(cfg *config.ServiceContext) (*WSDServer, error) {
 		deviceUUID: deviceUUID,
 		msgNumber:  0,
 		ctx:        ctx,
-		cancel:     cancel,
 	}
 
 	logger.Infof("WS-Discovery server initialized - IP: %s, UUID: %s", localIP, deviceUUID)
@@ -126,9 +116,6 @@ func (s *WSDServer) Start() error {
 			logger.Errorf("Error closing connection: %v", err)
 		}
 	}()
-
-	// Set up signal handler for graceful shutdown
-	s.setupSignalHandler()
 
 	// Send Hello announcement
 	if err := s.sendHello(); err != nil {
@@ -308,25 +295,6 @@ func (s *WSDServer) getNetworkInterface() (*net.Interface, error) {
 	return nil, fmt.Errorf("no suitable network interface found")
 }
 
-// setupSignalHandler sets up graceful shutdown on SIGTERM/SIGINT
-func (s *WSDServer) setupSignalHandler() {
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
-
-	go func() {
-		<-sigChan
-		logger.Infof("Shutdown signal received, sending Bye message...")
-
-		// Send Bye message
-		if err := s.sendBye(); err != nil {
-			logger.Warnf("Failed to send Bye message: %v", err)
-		}
-
-		// Cancel context to stop other goroutines
-		s.cancel()
-	}()
-}
-
 // listenForMessages listens for incoming WS-Discovery messages
 func (s *WSDServer) listenForMessages() {
 	defer s.wg.Done()
@@ -336,7 +304,10 @@ func (s *WSDServer) listenForMessages() {
 	for {
 		select {
 		case <-s.ctx.Done():
-			logger.Infof("WS-Discovery server shutting down...")
+			logger.Infof("WS-Discovery server shutting down, sending Bye...")
+			if err := s.sendBye(); err != nil {
+				logger.Warnf("Failed to send Bye on shutdown: %v", err)
+			}
 			return
 
 		default:
@@ -385,44 +356,23 @@ func (s *WSDServer) processMessage(message string, from *net.UDPAddr) {
 	}
 }
 
-// parseSOAPAction extracts the SOAP action from the message
+// parseSOAPAction extracts the WS-Discovery Action URI from the message.
+// Uses encoding/xml so any namespace prefix (wsa:, a:, etc.) is accepted.
+// G-011: replaces the brittle string-index parser that had an off-by-N
+// bug when the <a:Action> prefix was used (advanced by len("<wsa:Action>")
+// instead of len("<a:Action>"), silently skipping the first two bytes).
 func (s *WSDServer) parseSOAPAction(message string) string {
-	// Look for wsa:Action in the SOAP header
-	actionStart := strings.Index(message, "<wsa:Action>")
-	if actionStart == -1 {
-		actionStart = strings.Index(message, "<a:Action>")
-	}
-	if actionStart == -1 {
-		return ""
-	}
-
-	actionStart += len("<wsa:Action>")
-	actionEnd := strings.Index(message[actionStart:], "</")
-	if actionEnd == -1 {
-		return ""
-	}
-
-	return strings.TrimSpace(message[actionStart : actionStart+actionEnd])
+	v, _ := xml.ExtractBodyElement([]byte(message), "Action")
+	return v
 }
 
-// parseMessageID extracts the MessageID from incoming message for RelatesTo
+// parseMessageID extracts the wsa:MessageID value from the message.
+// Uses encoding/xml so any namespace prefix (wsa:, a:, etc.) is accepted.
+// G-011: replaces the brittle string-index parser with the same off-by-N
+// bug as parseSOAPAction.
 func (s *WSDServer) parseMessageID(message string) string {
-	// Look for wsa:MessageID
-	idStart := strings.Index(message, "<wsa:MessageID>")
-	if idStart == -1 {
-		idStart = strings.Index(message, "<a:MessageID>")
-	}
-	if idStart == -1 {
-		return ""
-	}
-
-	idStart += len("<wsa:MessageID>")
-	idEnd := strings.Index(message[idStart:], "</")
-	if idEnd == -1 {
-		return ""
-	}
-
-	return strings.TrimSpace(message[idStart : idStart+idEnd])
+	v, _ := xml.ExtractBodyElement([]byte(message), "MessageID")
+	return v
 }
 
 // getLocalIP returns the local IP address

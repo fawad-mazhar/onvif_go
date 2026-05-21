@@ -2,11 +2,10 @@
 package main
 
 import (
+	"context"
 	"flag"
-	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/fawad-mazhar/onvif-go/internal/config"
 	"github.com/fawad-mazhar/onvif-go/internal/logger"
@@ -54,19 +53,19 @@ func main() {
 		}
 	}()
 
+	// Single signal handler for the whole process. Cancelling ctx propagates
+	// to StartWSDServer which sends Bye and returns.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	// Start WSD server
 	go func() {
-		err := server.StartWSDServer(cfg)
-		if err != nil {
+		if err := server.StartWSDServer(ctx, cfg); err != nil {
 			logger.Fatalf("WSD server error: %v", err)
 		}
 	}()
 
-	// Wait for interrupt signal
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigChan
-
+	// Wait for shutdown signal.
+	<-ctx.Done()
 	logger.Infof("Shutting down servers...")
-	time.Sleep(1 * time.Second)
 }

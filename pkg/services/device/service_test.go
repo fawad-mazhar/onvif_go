@@ -104,6 +104,7 @@ func TestServiceAddrs_NonDefaultPort(t *testing.T) {
 
 // setTemplateDirs configures xml template dirs relative to this package's
 // location (pkg/services/device/ → ../../../ is the repo root).
+// NOT safe under t.Parallel() — mutates package-level xml vars.
 func setTemplateDirs(t *testing.T) func() {
 	t.Helper()
 	const root = "../../../service_files"
