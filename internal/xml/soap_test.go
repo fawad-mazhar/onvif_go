@@ -105,6 +105,62 @@ func TestExtractUsernameToken_PrefixAgnostic(t *testing.T) {
 	}
 }
 
+func TestExtractElement(t *testing.T) {
+	cases := []struct {
+		name      string
+		xml       string
+		localName string
+		want      string
+	}{
+		{
+			name:      "body-element",
+			xml:       `<s:Envelope><s:Body><trt:ProfileToken>Profile0</trt:ProfileToken></s:Body></s:Envelope>`,
+			localName: "ProfileToken",
+			want:      "Profile0",
+		},
+		{
+			name:      "header-element",
+			xml:       `<s:Envelope><s:Header><wsa:Action>http://probe</wsa:Action></s:Header><s:Body/></s:Envelope>`,
+			localName: "Action",
+			want:      "http://probe",
+		},
+		{
+			name:      "whitespace-trimmed",
+			xml:       `<env><ProfileToken>  abc  </ProfileToken></env>`,
+			localName: "ProfileToken",
+			want:      "abc",
+		},
+		{
+			name:      "case-insensitive-match",
+			xml:       `<env><PROFILETOKEN>tok1</PROFILETOKEN></env>`,
+			localName: "profiletoken",
+			want:      "tok1",
+		},
+		{
+			name:      "first-match-returned",
+			xml:       `<env><X>first</X><X>second</X></env>`,
+			localName: "X",
+			want:      "first",
+		},
+		{
+			name:      "absent-element-returns-empty",
+			xml:       `<env><s:Body/></env>`,
+			localName: "ProfileToken",
+			want:      "",
+		},
+	}
+	for _, tc := range cases {
+		got, err := ExtractElement([]byte(tc.xml), tc.localName)
+		if err != nil {
+			t.Errorf("%s: unexpected error: %v", tc.name, err)
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestExtractUsernameToken_Missing(t *testing.T) {
 	body := `<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body><X/></s:Body></s:Envelope>`
 	_, err := ExtractUsernameToken([]byte(body))

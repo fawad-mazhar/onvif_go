@@ -124,8 +124,10 @@ func TestGetCapabilitiesHTTP_UnknownCategory_Fault(t *testing.T) {
 	defer setTemplateDirs(t)()
 	s := &ServiceContext{Port: 8080, Interface: "", PTZEnable: false}
 	soap := `<s:Envelope><s:Body><tds:GetCapabilities><Category>Bogus</Category></tds:GetCapabilities></s:Body></s:Envelope>`
+	r := httptest.NewRequest(http.MethodPost, "/onvif/device_service", nil)
+	r.Host = "192.0.2.1:8080"
 	rec := httptest.NewRecorder()
-	if err := s.GetCapabilitiesHTTP(rec, soap); err != nil {
+	if err := s.GetCapabilitiesHTTP(rec, r, soap); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if rec.Code != http.StatusInternalServerError {
@@ -140,8 +142,10 @@ func TestGetCapabilitiesHTTP_PTZCategoryWhenDisabled_Fault(t *testing.T) {
 	defer setTemplateDirs(t)()
 	s := &ServiceContext{Port: 8080, Interface: "", PTZEnable: false}
 	soap := `<s:Envelope><s:Body><tds:GetCapabilities><Category>PTZ</Category></tds:GetCapabilities></s:Body></s:Envelope>`
+	r := httptest.NewRequest(http.MethodPost, "/onvif/device_service", nil)
+	r.Host = "192.0.2.1:8080"
 	rec := httptest.NewRecorder()
-	if err := s.GetCapabilitiesHTTP(rec, soap); err != nil {
+	if err := s.GetCapabilitiesHTTP(rec, r, soap); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if rec.Code != http.StatusInternalServerError {
@@ -156,8 +160,10 @@ func TestGetCapabilitiesHTTP_PTZCategoryWhenEnabled_OK(t *testing.T) {
 	defer setTemplateDirs(t)()
 	s := &ServiceContext{Port: 8080, Interface: "", PTZEnable: true}
 	soap := `<s:Envelope><s:Body><tds:GetCapabilities><Category>PTZ</Category></tds:GetCapabilities></s:Body></s:Envelope>`
+	r := httptest.NewRequest(http.MethodPost, "/onvif/device_service", nil)
+	r.Host = "192.0.2.1:8080"
 	rec := httptest.NewRecorder()
-	if err := s.GetCapabilitiesHTTP(rec, soap); err != nil {
+	if err := s.GetCapabilitiesHTTP(rec, r, soap); err != nil {
 		t.Fatalf("PTZ enabled: unexpected error: %v", err)
 	}
 	if rec.Code != http.StatusOK {

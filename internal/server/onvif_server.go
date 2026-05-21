@@ -155,7 +155,7 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 		case "GetDeviceInformation":
 			handleServiceError(w, r, ds.GetDeviceInformationHTTP(w), "GetDeviceInformation")
 		case "GetCapabilities":
-			handleServiceError(w, r, ds.GetCapabilitiesHTTP(w, soapRequest), "GetCapabilities")
+			handleServiceError(w, r, ds.GetCapabilitiesHTTP(w, r, soapRequest), "GetCapabilities")
 		case "GetScopes":
 			handleServiceError(w, r, ds.GetScopesHTTP(w), "GetScopes")
 		case "SystemReboot":
@@ -199,24 +199,24 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 				Port:     cfg.Port,
 				Profiles: convertMediaProfiles(cfg.Profiles),
 			}
-			handleServiceError(w, r, mediaService.GetProfileHTTP(w, soapRequest), "Media.GetProfile")
+			handleServiceError(w, r, mediaService.GetProfileHTTP(w, r, soapRequest), "Media.GetProfile")
 		case soapAction == "GetStreamUri":
 			mediaService := &media.ServiceContext{
 				Port:     cfg.Port,
 				Profiles: convertMediaProfiles(cfg.Profiles),
 			}
-			handleServiceError(w, r, mediaService.GetStreamUriHTTP(w, soapRequest), "Media.GetStreamUri")
+			handleServiceError(w, r, mediaService.GetStreamUriHTTP(w, r, soapRequest), "Media.GetStreamUri")
 		case soapAction == "GetSnapshotUri":
 			mediaService := &media.ServiceContext{
 				Port:     cfg.Port,
 				Profiles: convertMediaProfiles(cfg.Profiles),
 			}
-			handleServiceError(w, r, mediaService.GetSnapshotUriHTTP(w, soapRequest), "Media.GetSnapshotUri")
+			handleServiceError(w, r, mediaService.GetSnapshotUriHTTP(w, r, soapRequest), "Media.GetSnapshotUri")
 		case soapAction == "CreateProfile":
 			mediaService := &media.ServiceContext{
 				Port: cfg.Port,
 			}
-			handleServiceError(w, r, mediaService.CreateProfileHTTP(w), "Media.CreateProfile")
+			handleServiceError(w, r, mediaService.CreateProfileHTTP(w, r), "Media.CreateProfile")
 		default:
 			sendUnsupportedResponse(w, r, cfg, "trt", soapAction)
 		}
@@ -319,6 +319,7 @@ func handleUnsupportedService(w http.ResponseWriter, r *http.Request, serviceNam
 // from r.Host + r.URL.Path so Fault.xml's %ADDRESS%/%SERVICE%
 // placeholders are filled correctly instead of being left empty.
 func sendSOAPError(w http.ResponseWriter, r *http.Request, message string) {
+	// TODO scheme: hardcoded http:// matches C reference; revisit if HTTPS-fronted.
 	schemeHost := "http://" + r.Host
 	if err := xmlfault.WriteFault(w, xmlfault.Fault{
 		DeviceAddress:  schemeHost + "/onvif",

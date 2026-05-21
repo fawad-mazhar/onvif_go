@@ -200,7 +200,7 @@ func categoryCode(category string) int {
 
 // GetCapabilitiesHTTP dispatches on the Category element, matching
 // device_service.c:444-596. Unknown categories return a SOAP fault.
-func (s *ServiceContext) GetCapabilitiesHTTP(w http.ResponseWriter, soapRequest string) error {
+func (s *ServiceContext) GetCapabilitiesHTTP(w http.ResponseWriter, r *http.Request, soapRequest string) error {
 	_, devAddr, mediaAddr, ptzAddr, eventsAddr, deviceioAddr, err := s.serviceAddrs()
 	if err != nil {
 		return err
@@ -211,13 +211,16 @@ func (s *ServiceContext) GetCapabilitiesHTTP(w http.ResponseWriter, soapRequest 
 	category, _ := xmlfault.ExtractElement([]byte(soapRequest), "Category")
 	icategory := categoryCode(category)
 	if icategory == -1 {
+		schemeHost := "http://" + r.Host
 		return xmlfault.WriteFault(w, xmlfault.Fault{
-			Service:   "device_service",
-			RecSend:   "Receiver",
-			Subcode:   "ter:ActionNotSupported",
-			SubcodeEx: "ter:NoSuchService",
-			Reason:    "No such service",
-			Detail:    "The requested WSDL service category is not supported by the device",
+			Service:        "device_service",
+			DeviceAddress:  schemeHost + "/onvif",
+			ServiceAddress: schemeHost + r.URL.Path,
+			RecSend:        "Receiver",
+			Subcode:        "ter:ActionNotSupported",
+			SubcodeEx:      "ter:NoSuchService",
+			Reason:         "No such service",
+			Detail:         "The requested WSDL service category is not supported by the device",
 		})
 	}
 
@@ -232,13 +235,16 @@ func (s *ServiceContext) GetCapabilitiesHTTP(w http.ResponseWriter, soapRequest 
 		})
 	case 4:
 		if !s.PTZEnable {
+			schemeHost := "http://" + r.Host
 			return xmlfault.WriteFault(w, xmlfault.Fault{
-				Service:   "device_service",
-				RecSend:   "Receiver",
-				Subcode:   "ter:ActionNotSupported",
-				SubcodeEx: "ter:NoSuchService",
-				Reason:    "No such service",
-				Detail:    "The requested WSDL service category is not supported by the device",
+				Service:        "device_service",
+				DeviceAddress:  schemeHost + "/onvif",
+				ServiceAddress: schemeHost + r.URL.Path,
+				RecSend:        "Receiver",
+				Subcode:        "ter:ActionNotSupported",
+				SubcodeEx:      "ter:NoSuchService",
+				Reason:         "No such service",
+				Detail:         "The requested WSDL service category is not supported by the device",
 			})
 		}
 		return utils.ProcessServiceTemplate(w, "device", "GetPTZCapabilities", map[string]string{

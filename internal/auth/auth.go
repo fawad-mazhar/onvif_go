@@ -62,6 +62,8 @@ func (s *ServiceContext) ValidateUsernameToken(token UsernameToken) bool {
 		return false
 	}
 
+	// Nonce present but Created absent, or other unexpected combination — reject.
+	logger.Warnf("Rejected non-digest UsernameToken: Nonce/Created combination invalid (G-002)")
 	return false
 }
 
@@ -82,9 +84,12 @@ func ParseSOAPHeader(soapHeader string) (UsernameToken, error) {
 	}, nil
 }
 
-// ValidateNonceTimestamp validates the nonce timestamp to prevent replay attacks
+// ValidateNonceTimestamp validates the nonce timestamp to prevent replay attacks.
+// The created=="" early-return is defense-in-depth: ValidateUsernameToken
+// already rejects any token where Created=="" (G-002 enforces digest-only),
+// so this path is not reachable from the normal auth flow.
 func ValidateNonceTimestamp(created string, maxAgeSeconds int) bool {
-	// If no timestamp is provided, skip validation
+	// Defense-in-depth: if no timestamp is provided, skip validation.
 	if created == "" {
 		return true
 	}

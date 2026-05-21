@@ -50,13 +50,21 @@ The gap shifted from parsing to handler output; tracked as G-008.
 
 ### ~~G-005 — Fault rendering doesn't know device/service address~~ (FIXED)
 
-**Resolved 2026-05-21** (Phase 3).
+**Resolved 2026-05-21** (Phase 3 + Phase 3.1).
 
-`sendSOAPError(w, r, msg)` now derives `DeviceAddress` and
-`ServiceAddress` from `r.Host` + `r.URL.Path`, filling
-`Fault.xml`'s `%ADDRESS%` / `%SERVICE%` placeholders correctly.
-`*http.Request` threaded through `handleServiceError`,
-`sendUnsupportedResponse`, and `handleUnsupportedService`.
+All fault-emitting paths now derive `DeviceAddress` and `ServiceAddress`
+from `r.Host` + `r.URL.Path`, filling `Fault.xml`'s `%ADDRESS%` /
+`%SERVICE%` placeholders correctly:
+
+- Phase 3: `sendSOAPError(w, r, msg)` — `*http.Request` threaded through
+  `handleServiceError`, `sendUnsupportedResponse`, `handleUnsupportedService`.
+- Phase 3.1: three handler-level `WriteFault` sites that bypassed the
+  central path:
+  - `device.GetCapabilitiesHTTP(w, r, soapRequest)` — unknown-category
+    and PTZ-disabled faults.
+  - `media.sendMediaFault(w, r, ...)` — profile-not-found and URI faults
+    (`GetProfileHTTP`, `getMediaUriHTTP`, `CreateProfileHTTP`,
+    `DeleteProfileHTTP`).
 
 ---
 
