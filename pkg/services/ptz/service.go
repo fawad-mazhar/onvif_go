@@ -52,7 +52,7 @@ type Node struct {
 // SOAP-derived or script-read strings cannot inject XML structure.
 func xmlEscapeString(s string) string {
 	var buf strings.Builder
-	_ = stdxml.EscapeText(&buf, []byte(s))
+	_ = stdxml.EscapeText(&buf, []byte(s)) // strings.Builder.Write never returns a non-nil error
 	return buf.String()
 }
 

@@ -54,16 +54,24 @@ func BuildRouter(cfg *config.ServiceContext) chi.Router {
 	}))
 
 	// Create ONVIF service handlers
+
+	// events.ServiceContext must be a singleton so subscription state (map[int]*Subscription)
+	// persists across requests. Creating it per-request would lose all subscription data and
+	// leak a goroutine from StartEventGenerator on every call.
+	eventsService := events.NewServiceContext()
+	eventsService.Port = cfg.Port
+	eventsService.Events = convertEvents(cfg.Events)
+
 	r.Route("/onvif", func(r chi.Router) {
 		// Add custom middleware for ONVIF requests
 		r.Use(onvifMiddleware(cfg))
 
 		// ONVIF service endpoints
-		r.Post("/device_service", createONVIFHandler(cfg, "device_service"))
-		r.Post("/media_service", createONVIFHandler(cfg, "media_service"))
-		r.Post("/ptz_service", createONVIFHandler(cfg, "ptz_service"))
-		r.Post("/events_service", createONVIFHandler(cfg, "events_service"))
-		r.Post("/deviceio_service", createONVIFHandler(cfg, "deviceio_service"))
+		r.Post("/device_service", createONVIFHandler(cfg, "device_service", nil))
+		r.Post("/media_service", createONVIFHandler(cfg, "media_service", nil))
+		r.Post("/ptz_service", createONVIFHandler(cfg, "ptz_service", nil))
+		r.Post("/events_service", createONVIFHandler(cfg, "events_service", eventsService))
+		r.Post("/deviceio_service", createONVIFHandler(cfg, "deviceio_service", nil))
 	})
 
 	// Add health check endpoint
@@ -142,8 +150,10 @@ func buildDeviceService(cfg *config.ServiceContext) *device.ServiceContext {
 	}
 }
 
-// processSOAPRequest routes SOAP requests to the appropriate service handler
-func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soapAction, serviceName string, cfg *config.ServiceContext) {
+// processSOAPRequest routes SOAP requests to the appropriate service handler.
+// eventsService is the singleton events.ServiceContext for events_service requests;
+// it is nil for all other service names.
+func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soapAction, serviceName string, cfg *config.ServiceContext, eventsService *events.ServiceContext) {
 	switch serviceName {
 	case "device_service":
 		ds := buildDeviceService(cfg)
@@ -264,11 +274,6 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 			sendUnsupportedResponse(w, r, cfg, "tptz", soapAction)
 		}
 	case "events_service":
-		eventsService := events.NewServiceContext()
-		eventsService.Port = cfg.Port
-		eventsService.Events = convertEvents(cfg.Events)
-		eventsService.StartEventGenerator() // Start generating test events
-
 		switch {
 		case soapAction == "GetServiceCapabilities":
 			handleServiceError(w, r, eventsService.GetServiceCapabilitiesHTTP(w), "Events.GetServiceCapabilities")
@@ -290,17 +295,11 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 			sendUnsupportedResponse(w, r, cfg, "tev", soapAction)
 		}
 	case "deviceio_service":
-		switch {
-		case soapAction == "GetServiceCapabilities":
-			deviceioService := &deviceio.ServiceContext{
-				Port: cfg.Port,
-			}
+		deviceioService := buildDeviceIOService(cfg)
+		switch soapAction {
+		case "GetServiceCapabilities":
 			handleServiceError(w, r, deviceioService.GetServiceCapabilitiesHTTP(w), "DeviceIO.GetServiceCapabilities")
-		case soapAction == "GetRelayOutputs":
-			deviceioService := &deviceio.ServiceContext{
-				Port:         cfg.Port,
-				RelayOutputs: convertRelayOutputs(cfg.RelayOutputs),
-			}
+		case "GetRelayOutputs":
 			handleServiceError(w, r, deviceioService.GetRelayOutputsHTTP(w), "DeviceIO.GetRelayOutputs")
 		default:
 			sendUnsupportedResponse(w, r, cfg, "tmd", soapAction)
@@ -384,8 +383,11 @@ func onvifMiddleware(_ *config.ServiceContext) func(http.Handler) http.Handler {
 	}
 }
 
-// createONVIFHandler creates a handler function for ONVIF services
-func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.HandlerFunc {
+// createONVIFHandler creates a handler function for ONVIF services.
+// eventsService must be non-nil for serviceName == "events_service"; pass nil
+// for all other services. The events service is a singleton whose subscription
+// map must outlive individual HTTP requests.
+func createONVIFHandler(cfg *config.ServiceContext, serviceName string, eventsService *events.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Read the SOAP request from the request body
 		body, err := io.ReadAll(r.Body)
@@ -447,7 +449,7 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string) http.Han
 		}
 
 		// Route the request to the appropriate service handler
-		processSOAPRequest(w, r, soapRequest, soapAction, serviceName, cfg)
+		processSOAPRequest(w, r, soapRequest, soapAction, serviceName, cfg, eventsService)
 	}
 }
 
@@ -513,19 +515,43 @@ func buildPTZNode(c config.PTZNode) ptz.Node {
 	}
 }
 
-// convertEvents converts config.Event to events.Event
+// buildDeviceIOService maps a config.ServiceContext to a deviceio.ServiceContext.
+// Audio source/output counts are derived from the profile list (same logic as
+// buildDeviceService).
+func buildDeviceIOService(cfg *config.ServiceContext) *deviceio.ServiceContext {
+	audioSources, audioOutputs := 0, 0
+	for _, p := range cfg.Profiles {
+		if p.AudioEncoder != config.AudioNone {
+			audioSources = 1
+		}
+		if p.AudioDecoder != config.AudioNone {
+			audioOutputs = 1
+		}
+	}
+	return &deviceio.ServiceContext{
+		Port:         cfg.Port,
+		RelayOutputs: convertRelayOutputs(cfg.RelayOutputs),
+		AudioSources: audioSources,
+		AudioOutputs: audioOutputs,
+	}
+}
+
+// convertEvents converts config.Event to events.Event, mapping all fields.
 func convertEvents(configEvents []config.Event) []events.Event {
 	eventsList := make([]events.Event, len(configEvents))
 	for i, ce := range configEvents {
 		eventsList[i] = events.Event{
-			Topic:    ce.Topic,
-			Producer: ce.SourceName,
+			Topic:       ce.Topic,
+			SourceName:  ce.SourceName,
+			SourceType:  ce.SourceType,
+			SourceValue: ce.SourceValue,
 		}
 	}
 	return eventsList
 }
 
-// convertRelayOutputs converts config.RelayOutput to deviceio.RelayOutput
+// convertRelayOutputs converts config.RelayOutput to deviceio.RelayOutput.
+// Each relay gets a unique token "RelayOutput_N" matching C reference semantics.
 func convertRelayOutputs(configRelays []config.RelayOutput) []deviceio.RelayOutput {
 	relayOutputs := make([]deviceio.RelayOutput, len(configRelays))
 	for i, cr := range configRelays {
@@ -534,8 +560,7 @@ func convertRelayOutputs(configRelays []config.RelayOutput) []deviceio.RelayOutp
 			idleState = "open"
 		}
 		relayOutputs[i] = deviceio.RelayOutput{
-			Name:      "RelayOutput",
-			Token:     "RelayToken",
+			Token:     fmt.Sprintf("RelayOutput_%d", i),
 			IdleState: idleState,
 		}
 	}

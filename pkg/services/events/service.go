@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -52,7 +53,6 @@ type ServiceContext struct {
 // Event represents an event configuration
 type Event struct {
 	Topic       string
-	Producer    string
 	SourceName  string
 	SourceType  string
 	SourceValue string
@@ -101,15 +101,54 @@ func NewServiceContext() *ServiceContext {
 	}
 }
 
-// createEventElement creates an XML element for an event
-func (s *ServiceContext) createEventElement(event Event) string {
-	eventElement := fmt.Sprintf(`
-                <tev:EventTopic>
-                    <tt:Topic>%s</tt:Topic>
-                    <tt:Producer>%s</tt:Producer>
-                </tev:EventTopic>`, event.Topic, event.Producer)
+// buildTopicXML generates the <wstop:TopicSet> body for GetEventProperties.
+// Matches C events_get_event_properties(): splits each event topic on "/" into
+// up to 3 levels; the leaf element gets  wstop:topic="true" (2-space indent
+// before wstop to match C reference sprintf format). data_name/data_type are
+// derived from the topic string exactly as in the C reference.
+func buildTopicXML(events []Event) string {
+	var sb strings.Builder
+	for _, ev := range events {
+		parts := strings.SplitN(ev.Topic, "/", 4)
+		if len(parts) > 3 {
+			logger.Warnf("GetEventProperties: topic has too many levels, skipping: %s", ev.Topic)
+			continue
+		}
+		n := len(parts)
 
-	return eventElement
+		var opens, closes [3]string
+		for j := 0; j < n; j++ {
+			token := parts[j]
+			closes[j] = fmt.Sprintf("</%s>", token)
+			if j == n-1 {
+				opens[j] = fmt.Sprintf("<%s  wstop:topic=\"true\">", token)
+			} else {
+				opens[j] = fmt.Sprintf("<%s>", token)
+			}
+		}
+
+		dataName := "State"
+		dataType := "xsd:boolean"
+		if ev.Topic == "tns1:Device/Trigger/Relay" {
+			dataName = "LogicalState"
+			dataType = "tt:RelayLogicalState"
+		}
+
+		for j := 0; j < n; j++ {
+			sb.WriteString(opens[j])
+		}
+		sb.WriteString(fmt.Sprintf(
+			`<tt:MessageDescription IsProperty="true">`+
+				`<tt:Source><tt:SimpleItemDescription Name="%s" Type="%s"/></tt:Source>`+
+				`<tt:Data><tt:SimpleItemDescription Name="%s" Type="%s"/></tt:Data>`+
+				`</tt:MessageDescription>`,
+			ev.SourceName, ev.SourceType, dataName, dataType,
+		))
+		for j := n - 1; j >= 0; j-- {
+			sb.WriteString(closes[j])
+		}
+	}
+	return sb.String()
 }
 
 // getSubscriptionByID retrieves a subscription by ID
@@ -418,16 +457,12 @@ func (s *ServiceContext) UnsubscribeHTTP(w http.ResponseWriter, r *http.Request)
 	return utils.ProcessServiceTemplate(w, "events", "Unsubscribe", replacements)
 }
 
-// GetEventPropertiesHTTP handles the GetEventProperties ONVIF events service method via HTTP
+// GetEventPropertiesHTTP handles the GetEventProperties ONVIF events service method via HTTP.
+// Builds a proper ONVIF wstop:TopicSet tree matching C events_get_event_properties().
 func (s *ServiceContext) GetEventPropertiesHTTP(w http.ResponseWriter) error {
-	return utils.ProcessCollectionServiceTemplate(
-		w,
-		s.Events,
-		s.createEventElement,
-		"%EVENTS%",
-		"events",
-		"GetEventProperties",
-	)
+	return utils.ProcessServiceTemplate(w, "events", "GetEventProperties", map[string]string{
+		"%TOPICS%": buildTopicXML(s.Events),
+	})
 }
 
 // SetSynchronizationPointHTTP handles the SetSynchronizationPoint ONVIF events service method via HTTP
