@@ -319,11 +319,10 @@ func handleUnsupportedService(w http.ResponseWriter, r *http.Request, serviceNam
 // from r.Host + r.URL.Path so Fault.xml's %ADDRESS%/%SERVICE%
 // placeholders are filled correctly instead of being left empty.
 func sendSOAPError(w http.ResponseWriter, r *http.Request, message string) {
-	// TODO scheme: hardcoded http:// matches C reference; revisit if HTTPS-fronted.
-	schemeHost := "http://" + r.Host
+	devAddr, svcAddr := xmlfault.FaultAddrs(r)
 	if err := xmlfault.WriteFault(w, xmlfault.Fault{
-		DeviceAddress:  schemeHost + "/onvif",
-		ServiceAddress: schemeHost + r.URL.Path,
+		DeviceAddress:  devAddr,
+		ServiceAddress: svcAddr,
 		RecSend:        "Receiver",
 		Subcode:        "ter:Action",
 		SubcodeEx:      "ter:ActionFailed",

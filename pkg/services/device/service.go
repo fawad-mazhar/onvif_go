@@ -211,11 +211,11 @@ func (s *ServiceContext) GetCapabilitiesHTTP(w http.ResponseWriter, r *http.Requ
 	category, _ := xmlfault.ExtractElement([]byte(soapRequest), "Category")
 	icategory := categoryCode(category)
 	if icategory == -1 {
-		schemeHost := "http://" + r.Host
+		devAddr, svcAddr := xmlfault.FaultAddrs(r)
 		return xmlfault.WriteFault(w, xmlfault.Fault{
 			Service:        "device_service",
-			DeviceAddress:  schemeHost + "/onvif",
-			ServiceAddress: schemeHost + r.URL.Path,
+			DeviceAddress:  devAddr,
+			ServiceAddress: svcAddr,
 			RecSend:        "Receiver",
 			Subcode:        "ter:ActionNotSupported",
 			SubcodeEx:      "ter:NoSuchService",
@@ -235,11 +235,11 @@ func (s *ServiceContext) GetCapabilitiesHTTP(w http.ResponseWriter, r *http.Requ
 		})
 	case 4:
 		if !s.PTZEnable {
-			schemeHost := "http://" + r.Host
+			devAddr, svcAddr := xmlfault.FaultAddrs(r)
 			return xmlfault.WriteFault(w, xmlfault.Fault{
 				Service:        "device_service",
-				DeviceAddress:  schemeHost + "/onvif",
-				ServiceAddress: schemeHost + r.URL.Path,
+				DeviceAddress:  devAddr,
+				ServiceAddress: svcAddr,
 				RecSend:        "Receiver",
 				Subcode:        "ter:ActionNotSupported",
 				SubcodeEx:      "ter:NoSuchService",

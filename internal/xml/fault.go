@@ -52,6 +52,18 @@ type Fault struct {
 	Detail string
 }
 
+// FaultAddrs derives the device and service address strings from r,
+// matching the C reference send_fault() convention:
+//
+//	DeviceAddress  = "http://" + r.Host + "/onvif"
+//	ServiceAddress = "http://" + r.Host + r.URL.Path
+//
+// TODO scheme: hardcoded http:// matches C reference; revisit if HTTPS-fronted.
+func FaultAddrs(r *http.Request) (device, service string) {
+	base := "http://" + r.Host
+	return base + "/onvif", base + r.URL.Path
+}
+
 // RenderFault renders f against service_files/generic/Fault.xml and returns
 // the XML body plus the HTTP status to emit (500). It is byte-compatible
 // with the C reference's send_fault() output.

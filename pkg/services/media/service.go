@@ -186,11 +186,11 @@ func (s *ServiceContext) DeleteProfileHTTP(w http.ResponseWriter, r *http.Reques
 // sendMediaFault sends a SOAP fault response for media service errors
 // using the shared structured xmlfault renderer (Fault.xml template).
 func sendMediaFault(w http.ResponseWriter, r *http.Request, recSend, subcode, subcodeEx, reason, detail string) error {
-	schemeHost := "http://" + r.Host
+	devAddr, svcAddr := xmlfault.FaultAddrs(r)
 	return xmlfault.WriteFault(w, xmlfault.Fault{
 		Service:        "media_service",
-		DeviceAddress:  schemeHost + "/onvif",
-		ServiceAddress: schemeHost + r.URL.Path,
+		DeviceAddress:  devAddr,
+		ServiceAddress: svcAddr,
 		RecSend:        recSend,
 		Subcode:        subcode,
 		SubcodeEx:      subcodeEx,

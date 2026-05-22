@@ -8,3 +8,4 @@ device_service/GetSystemDateAndTime
 device_service/GetUsers
 device_service/GetWsdlUrl
 events_service/GetServiceCapabilities
+media_service/CreateProfile
