@@ -2,6 +2,7 @@
 package ptz
 
 import (
+	stdxml "encoding/xml"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -44,6 +45,15 @@ type Node struct {
 	JumpToAbs        string
 	JumpToRel        string
 	GetPresets       string
+}
+
+// xmlEscapeString escapes s for safe embedding in an XML text node.
+// Converts <, >, &, ", ' to their XML entity equivalents so that
+// SOAP-derived or script-read strings cannot inject XML structure.
+func xmlEscapeString(s string) string {
+	var buf strings.Builder
+	_ = stdxml.EscapeText(&buf, []byte(s))
+	return buf.String()
 }
 
 // validateSOAPArg rejects shell meta-characters that could be injected through
@@ -216,7 +226,7 @@ func (s *ServiceContext) GetPresetsHTTP(w http.ResponseWriter, r *http.Request, 
 			`<tptz:Preset token="PresetToken_%d"><tt:Name>%s</tt:Name>`+
 				`<tt:PTZPosition><tt:PanTilt x="%s" y="%s"/>`+
 				`<tt:Zoom x="%s"/></tt:PTZPosition></tptz:Preset>`,
-			p.number, p.name,
+			p.number, xmlEscapeString(p.name),
 			fmt.Sprintf("%f", p.x), fmt.Sprintf("%f", p.y),
 			fmt.Sprintf("%f", p.z),
 		))

@@ -168,3 +168,68 @@ func TestExtractUsernameToken_Missing(t *testing.T) {
 		t.Errorf("expected error for missing UsernameToken")
 	}
 }
+
+func TestExtractAttr(t *testing.T) {
+	cases := []struct {
+		name      string
+		xml       string
+		localName string
+		attrName  string
+		want      string
+	}{
+		{
+			name:      "attribute-present",
+			xml:       `<Envelope><Body><tptz:ContinuousMove><tt:PanTilt x="0.5" y="-0.3"/></tptz:ContinuousMove></Body></Envelope>`,
+			localName: "PanTilt",
+			attrName:  "x",
+			want:      "0.5",
+		},
+		{
+			name:      "element-absent-returns-empty",
+			xml:       `<Envelope><Body><Stop/></Body></Envelope>`,
+			localName: "PanTilt",
+			attrName:  "x",
+			want:      "",
+		},
+		{
+			name:      "element-present-attribute-absent-returns-empty",
+			xml:       `<Envelope><Body><tt:PanTilt y="1.0"/></Body></Envelope>`,
+			localName: "PanTilt",
+			attrName:  "x",
+			want:      "",
+		},
+		{
+			name:      "case-insensitive-element-name",
+			xml:       `<Envelope><Body><PANTILT x="0.9" y="0.1"/></Body></Envelope>`,
+			localName: "pantilt",
+			attrName:  "x",
+			want:      "0.9",
+		},
+		{
+			name:      "case-insensitive-attribute-name",
+			xml:       `<Envelope><Body><PanTilt X="0.7" Y="0.2"/></Body></Envelope>`,
+			localName: "PanTilt",
+			attrName:  "x",
+			want:      "0.7",
+		},
+		{
+			name: "first-match-stops-early",
+			// First PanTilt has no x attr; second has x="0.8".
+			// ExtractAttr must stop at the first match and return "".
+			xml:       `<Envelope><Body><tt:PanTilt y="0.0"/><tt:PanTilt x="0.8"/></Body></Envelope>`,
+			localName: "PanTilt",
+			attrName:  "x",
+			want:      "",
+		},
+	}
+	for _, tc := range cases {
+		got, err := ExtractAttr([]byte(tc.xml), tc.localName, tc.attrName)
+		if err != nil {
+			t.Errorf("%s: unexpected error: %v", tc.name, err)
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}

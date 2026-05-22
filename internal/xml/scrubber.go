@@ -19,6 +19,7 @@
 //   - <wsa5:MessageID>..."urn:uuid:..."</wsa5:MessageID> -> <UUID/>
 //   - <wsa5:MessageID>urn:uuid:...</wsa5:MessageID>      -> <UUID/>
 //   - <tt:HwAddress>...</tt:HwAddress>            -> <MAC/>
+//   - <tt:UtcTime>...</tt:UtcTime>                -> normalized placeholder (GetStatus)
 //   - Leading <?xml ...?> prolog stripped         (C faults omit it)
 
 package xml
@@ -67,6 +68,7 @@ var (
 	reDST         = stripElementRE("DaylightSavings")
 	reMessageID   = stripElementRE("MessageID")
 	reHwAddress   = stripElementRE("HwAddress")
+	reUtcTime     = stripElementRE("UtcTime")
 )
 
 // Scrub applies every scrub pass to data and returns the normalized form.
@@ -85,6 +87,7 @@ func Scrub(data []byte) []byte {
 	data = replaceElement(data, reDST, "DaylightSavings", "DSTSCRUBBED")
 	data = replaceElement(data, reMessageID, "MessageID", "UUIDSCRUBBED")
 	data = replaceElement(data, reHwAddress, "HwAddress", "MACSCRUBBED")
+	data = replaceElement(data, reUtcTime, "UtcTime", "UTCSCRUBBED")
 	return data
 }
 

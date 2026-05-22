@@ -148,6 +148,11 @@ func ExtractElement(data []byte, localName string) (string, error) {
 // ExtractAttr returns the value of attribute attrName from the first element
 // whose local name matches localName (case-insensitive) anywhere in data.
 // Returns ("", nil) when the element or attribute is not present.
+//
+// First-match semantics: the search stops at the first element whose local
+// name matches localName. If that element does not carry attrName, ("", nil)
+// is returned even if a later element with the same local name does have it.
+//
 // Used by PTZ motion handlers to read PanTilt@x/y and Zoom@x values from
 // ContinuousMove / RelativeMove / AbsoluteMove SOAP request bodies.
 func ExtractAttr(data []byte, localName, attrName string) (string, error) {
