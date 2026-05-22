@@ -254,6 +254,47 @@ it was removed in Phase 2.
 
 ---
 
+### G-015 — Events stateful-ops parity placeholders
+
+**Summary**: Four hardcoded values in the Events service will diverge from
+the C reference once fixtures are captured for Subscribe, Renew, and
+CreatePullPointSubscription:
+
+1. **`CreatePullPointSubscriptionHTTP`** — address uses `"http://localhost:%d/..."`.
+   Should derive host from `r.Host` (same G-005 pattern applied to PTZ/device).
+   `pkg/services/events/service.go:307`.
+
+2. **`SubscribeHTTP`** — same hardcoded `localhost` address for `%REFERENCE%`
+   and consumer reference.
+   `pkg/services/events/service.go:~370`.
+
+3. **`Renew` + `Subscribe` UUIDs** — `%MSG_UUID%` uses `fmt.Sprintf("uuid-%d",
+   time.Now().UnixNano())` (not RFC 4122); `%REL_TO_UUID%` is literal
+   `"uuid-relates-to"` instead of being parsed from the request's
+   `wsa:MessageID` header.
+   `pkg/services/events/service.go:419-420,~380`.
+
+4. **`GetServiceCapabilitiesHTTP`** — `%EVENTS_BASESUBSCRIPTION%` and
+   `%EVENTS_PULLPOINT%` hardcoded to `"true"` regardless of `cfg.EventsEnable`
+   bitmask (`1` = base, `2` = pull-point, `3` = both).
+   `pkg/services/events/service.go:269-272`.
+
+**Masking**: No golden-diff fixtures exist for Subscribe, Renew, or
+CreatePullPointSubscription yet (those ops require stateful request sequences).
+`GetServiceCapabilities` fixture happens to match because test config has
+`events_enable=3`.
+
+**Fix window**: Phase 6 (before fixture capture for events stateful ops).
+- Items 1 & 2: extract `scheme + r.Host` and pass via `ServiceContext.BaseURL`
+  (same approach as PTZ/device).
+- Item 3: use a proper UUID v4 generator (e.g. `crypto/rand`-based) for
+  `%MSG_UUID%`; parse `wsa:MessageID` from the incoming SOAP header for
+  `%REL_TO_UUID%`.
+- Item 4: map `cfg.EventsEnable & 1` → `%EVENTS_BASESUBSCRIPTION%`,
+  `cfg.EventsEnable & 2` → `%EVENTS_PULLPOINT%`.
+
+---
+
 ## Procedure for adding a new gap
 
 1. Assign next `G-nnn` id.

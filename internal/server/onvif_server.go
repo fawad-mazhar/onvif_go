@@ -56,8 +56,7 @@ func BuildRouter(cfg *config.ServiceContext) chi.Router {
 	// Create ONVIF service handlers
 
 	// events.ServiceContext must be a singleton so subscription state (map[int]*Subscription)
-	// persists across requests. Creating it per-request would lose all subscription data and
-	// leak a goroutine from StartEventGenerator on every call.
+	// persists across requests. Creating it per-request would lose all subscription data.
 	eventsService := events.NewServiceContext()
 	eventsService.Port = cfg.Port
 	eventsService.Events = convertEvents(cfg.Events)
@@ -551,7 +550,7 @@ func convertEvents(configEvents []config.Event) []events.Event {
 }
 
 // convertRelayOutputs converts config.RelayOutput to deviceio.RelayOutput.
-// Each relay gets a unique token "RelayOutput_N" matching C reference semantics.
+// Each relay gets a unique token "RelayOutputToken_N" matching C reference semantics.
 func convertRelayOutputs(configRelays []config.RelayOutput) []deviceio.RelayOutput {
 	relayOutputs := make([]deviceio.RelayOutput, len(configRelays))
 	for i, cr := range configRelays {
@@ -560,7 +559,7 @@ func convertRelayOutputs(configRelays []config.RelayOutput) []deviceio.RelayOutp
 			idleState = "open"
 		}
 		relayOutputs[i] = deviceio.RelayOutput{
-			Token:     fmt.Sprintf("RelayOutput_%d", i),
+			Token:     fmt.Sprintf("RelayOutputToken_%d", i),
 			IdleState: idleState,
 		}
 	}

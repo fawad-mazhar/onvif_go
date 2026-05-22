@@ -34,11 +34,10 @@ const (
 	// Topic names
 	relayTriggerTopic = "tns1:Device/Trigger/Relay"
 
-	// Event generation and processing constants
-	eventGenerationInterval = 10 * time.Second       // How often test events are generated
-	pullMessagesSleep       = 100 * time.Millisecond // Sleep between pull message checks
-	maxSubscriptionID       = 65535                  // Maximum subscription ID before wrapping
-	defaultPullTimeout      = 30 * time.Second       // Default timeout for pull operations
+	// Event processing constants
+	pullMessagesSleep  = 100 * time.Millisecond // Sleep between pull message checks
+	maxSubscriptionID  = 65535                  // Maximum subscription ID before wrapping
+	defaultPullTimeout = 30 * time.Second       // Default timeout for pull operations
 )
 
 // ServiceContext holds the configuration and state for the events service
@@ -263,23 +262,6 @@ func (s *ServiceContext) AddEventMessage(topic string, state bool, timestamp tim
 	}
 }
 
-// StartEventGenerator starts a background goroutine that generates test events
-func (s *ServiceContext) StartEventGenerator() {
-	go func() {
-		ticker := time.NewTicker(eventGenerationInterval)
-		defer ticker.Stop()
-
-		eventState := false
-		for range ticker.C {
-			// Generate sample events for testing
-			s.AddEventMessage("tns1:VideoSource/MotionAlarm", eventState, time.Now())
-			s.AddEventMessage("tns1:Device/Trigger/Relay", eventState, time.Now())
-			eventState = !eventState
-			logger.Debugf("Generated test events with state: %v", eventState)
-		}
-	}()
-}
-
 // HTTP-compatible methods that write to http.ResponseWriter
 
 // GetServiceCapabilitiesHTTP handles the GetServiceCapabilities ONVIF events service method via HTTP
@@ -419,9 +401,17 @@ func (s *ServiceContext) RenewHTTP(w http.ResponseWriter, r *http.Request) error
 		return fmt.Errorf("subscription not found")
 	}
 
-	// Extend subscription (default extension)
+	// Extend subscription. Re-check existence under the write lock to avoid a
+	// TOCTOU race with cleanExpiredSubscriptions: between getSubscriptionByID
+	// releasing RLock and this Lock acquire, a concurrent cleanup may have
+	// already deleted the entry, making the sub pointer orphaned.
+	newExpiry := time.Now().Add(DefaultSubscriptionTimeout)
 	s.subMutex.Lock()
-	sub.ExpireTime = time.Now().Add(DefaultSubscriptionTimeout)
+	if _, stillExists := s.subscriptions[subID]; !stillExists {
+		s.subMutex.Unlock()
+		return fmt.Errorf("subscription not found")
+	}
+	sub.ExpireTime = newExpiry
 	s.subMutex.Unlock()
 
 	now := time.Now()
