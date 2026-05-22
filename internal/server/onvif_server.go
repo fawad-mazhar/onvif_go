@@ -221,18 +221,45 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 			sendUnsupportedResponse(w, r, cfg, "trt", soapAction)
 		}
 	case "ptz_service":
+		ptzService := &ptz.ServiceContext{
+			Port: cfg.Port,
+			Node: buildPTZNode(cfg.PTZNode),
+		}
 		switch {
 		case soapAction == "GetServiceCapabilities":
-			ptzService := &ptz.ServiceContext{
-				Port: cfg.Port,
-			}
 			handleServiceError(w, r, ptzService.GetServiceCapabilitiesHTTP(w), "PTZ.GetServiceCapabilities")
 		case soapAction == "GetNodes":
-			ptzService := &ptz.ServiceContext{
-				Port:     cfg.Port,
-				PTZNodes: convertPTZNodes(cfg.PTZNode),
-			}
 			handleServiceError(w, r, ptzService.GetNodesHTTP(w), "PTZ.GetNodes")
+		case soapAction == "GetNode":
+			handleServiceError(w, r, ptzService.GetNodeHTTP(w, r, soapRequest), "PTZ.GetNode")
+		case soapAction == "GetConfigurations":
+			handleServiceError(w, r, ptzService.GetConfigurationsHTTP(w), "PTZ.GetConfigurations")
+		case soapAction == "GetConfiguration":
+			handleServiceError(w, r, ptzService.GetConfigurationHTTP(w), "PTZ.GetConfiguration")
+		case soapAction == "GetConfigurationOptions":
+			handleServiceError(w, r, ptzService.GetConfigurationOptionsHTTP(w), "PTZ.GetConfigurationOptions")
+		case soapAction == "GetPresets":
+			handleServiceError(w, r, ptzService.GetPresetsHTTP(w, r, soapRequest), "PTZ.GetPresets")
+		case soapAction == "GotoPreset":
+			handleServiceError(w, r, ptzService.GotoPresetHTTP(w, r, soapRequest), "PTZ.GotoPreset")
+		case soapAction == "GotoHomePosition":
+			handleServiceError(w, r, ptzService.GotoHomePositionHTTP(w, r, soapRequest), "PTZ.GotoHomePosition")
+		case soapAction == "ContinuousMove":
+			handleServiceError(w, r, ptzService.ContinuousMoveHTTP(w, r, soapRequest), "PTZ.ContinuousMove")
+		case soapAction == "RelativeMove":
+			handleServiceError(w, r, ptzService.RelativeMoveHTTP(w, r, soapRequest), "PTZ.RelativeMove")
+		case soapAction == "AbsoluteMove":
+			handleServiceError(w, r, ptzService.AbsoluteMoveHTTP(w, r, soapRequest), "PTZ.AbsoluteMove")
+		case soapAction == "Stop":
+			handleServiceError(w, r, ptzService.StopHTTP(w, r, soapRequest), "PTZ.Stop")
+		case soapAction == "GetStatus":
+			handleServiceError(w, r, ptzService.GetStatusHTTP(w, r, soapRequest), "PTZ.GetStatus")
+		case soapAction == "SetPreset":
+			handleServiceError(w, r, ptzService.SetPresetHTTP(w, r, soapRequest), "PTZ.SetPreset")
+		case soapAction == "RemovePreset":
+			handleServiceError(w, r, ptzService.RemovePresetHTTP(w, r, soapRequest), "PTZ.RemovePreset")
+		case soapAction == "SetHomePosition":
+			handleServiceError(w, r, ptzService.SetHomePositionHTTP(w, r, soapRequest), "PTZ.SetHomePosition")
 		default:
 			sendUnsupportedResponse(w, r, cfg, "tptz", soapAction)
 		}
@@ -455,21 +482,35 @@ func convertMediaProfiles(configProfiles []config.StreamProfile) []media.Profile
 	return mediaProfiles
 }
 
-// convertPTZNodes converts config.PTZNode to ptz.Node
-func convertPTZNodes(configPTZNode config.PTZNode) []ptz.Node {
-	// For now, we're creating a single PTZ node from the config
-	ptzNode := ptz.Node{
-		Name:    "PTZ Node",
-		Token:   "PTZToken",
-		PTZType: "PanTiltZoom",
-		MinPan:  configPTZNode.MinStepX,
-		MaxPan:  configPTZNode.MaxStepX,
-		MinTilt: configPTZNode.MinStepY,
-		MaxTilt: configPTZNode.MaxStepY,
-		MinZoom: configPTZNode.MinStepZ,
-		MaxZoom: configPTZNode.MaxStepZ,
+// buildPTZNode converts config.PTZNode to ptz.Node, mapping all command strings
+// and coordinate limits so PTZ handlers have everything they need.
+func buildPTZNode(c config.PTZNode) ptz.Node {
+	return ptz.Node{
+		MinX: c.MinStepX,
+		MaxX: c.MaxStepX,
+		MinY: c.MinStepY,
+		MaxY: c.MaxStepY,
+		MinZ: c.MinStepZ,
+		MaxZ: c.MaxStepZ,
+
+		GetPosition:      c.GetPosition,
+		IsMoving:         c.IsMoving,
+		MoveLeft:         c.MoveLeft,
+		MoveRight:        c.MoveRight,
+		MoveUp:           c.MoveUp,
+		MoveDown:         c.MoveDown,
+		MoveIn:           c.MoveIn,
+		MoveOut:          c.MoveOut,
+		MoveStop:         c.MoveStop,
+		MovePreset:       c.MovePreset,
+		GotoHomePosition: c.GotoHomePosition,
+		SetPreset:        c.SetPreset,
+		SetHomePosition:  c.SetHomePosition,
+		RemovePreset:     c.RemovePreset,
+		JumpToAbs:        c.JumpToAbs,
+		JumpToRel:        c.JumpToRel,
+		GetPresets:       c.GetPresets,
 	}
-	return []ptz.Node{ptzNode}
 }
 
 // convertEvents converts config.Event to events.Event

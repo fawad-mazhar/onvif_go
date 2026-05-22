@@ -9,3 +9,5 @@ device_service/GetUsers
 device_service/GetWsdlUrl
 events_service/GetServiceCapabilities
 media_service/CreateProfile
+ptz_service/GetNodes
+ptz_service/GetServiceCapabilities

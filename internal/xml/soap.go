@@ -144,3 +144,31 @@ func ExtractElement(data []byte, localName string) (string, error) {
 		}
 	}
 }
+
+// ExtractAttr returns the value of attribute attrName from the first element
+// whose local name matches localName (case-insensitive) anywhere in data.
+// Returns ("", nil) when the element or attribute is not present.
+// Used by PTZ motion handlers to read PanTilt@x/y and Zoom@x values from
+// ContinuousMove / RelativeMove / AbsoluteMove SOAP request bodies.
+func ExtractAttr(data []byte, localName, attrName string) (string, error) {
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			return "", nil
+		}
+		if err != nil {
+			return "", err
+		}
+		if se, ok := tok.(xml.StartElement); ok {
+			if strings.EqualFold(se.Name.Local, localName) {
+				for _, a := range se.Attr {
+					if strings.EqualFold(a.Name.Local, attrName) {
+						return a.Value, nil
+					}
+				}
+				return "", nil
+			}
+		}
+	}
+}

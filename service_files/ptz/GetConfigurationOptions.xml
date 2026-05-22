@@ -3,11 +3,9 @@
                    xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl"
                    xmlns:tt="http://www.onvif.org/ver10/schema">
     <SOAP-ENV:Body>
-        <tptz:GetNodesResponse>
-            <tptz:PTZNode FixedHomePosition="false"
-                          token="PTZNodeToken">
-                <tt:Name>PTZ</tt:Name>
-                <tt:SupportedPTZSpaces>
+        <tptz:GetConfigurationOptionsResponse>
+            <tptz:PTZConfigurationOptions>
+                <tt:Spaces>
                     <tt:AbsolutePanTiltPositionSpace>
                         <tt:URI>http://www.onvif.org/ver10/tptz/PanTiltSpaces/PositionGenericSpace</tt:URI>
                         <tt:XRange>
@@ -87,10 +85,23 @@
                             <tt:Max>1</tt:Max>
                         </tt:XRange>
                     </tt:ZoomSpeedSpace>
-                </tt:SupportedPTZSpaces>
-                <tt:MaximumNumberOfPresets>8</tt:MaximumNumberOfPresets>
-                <tt:HomeSupported>true</tt:HomeSupported>
-            </tptz:PTZNode>
-        </tptz:GetNodesResponse>
+                </tt:Spaces>
+                <tt:PTZTimeout>
+                    <tt:Min>PT00H00M01S</tt:Min>
+                    <tt:Max>PT00H01M40S</tt:Max>
+                </tt:PTZTimeout>
+                <tt:PTControlDirection>
+                    <tt:EFlip>
+                        <tt:Mode>OFF</tt:Mode>
+                        <tt:Mode>ON</tt:Mode>
+                    </tt:EFlip>
+                    <tt:Reverse>
+                        <tt:Mode>OFF</tt:Mode>
+                        <tt:Mode>ON</tt:Mode>
+                        <tt:Mode>AUTO</tt:Mode>
+                    </tt:Reverse>
+                </tt:PTControlDirection>
+            </tptz:PTZConfigurationOptions>
+        </tptz:GetConfigurationOptionsResponse>
     </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>
