@@ -482,15 +482,15 @@ func (s *ServiceContext) SetSynchronizationPointHTTP(w http.ResponseWriter, r *h
 		return fmt.Errorf("subscription not found")
 	}
 
-	// Re-check under a write lock to close TOCTOU window with cleanExpiredSubscriptions.
-	// Write lock matches cleanExpiredSubscriptions so message appends below cannot
-	// target an orphaned sub after cleanup has deleted the entry.
-	s.subMutex.Lock()
+	// Hold subMutex.RLock across the entire message-append loop so that
+	// cleanExpiredSubscriptions cannot delete the entry mid-loop (it requires
+	// the write lock). Lock order subMutex → messageMutex matches AddEventMessage.
+	s.subMutex.RLock()
 	if _, stillExists := s.subscriptions[subID]; !stillExists {
-		s.subMutex.Unlock()
+		s.subMutex.RUnlock()
 		return fmt.Errorf("subscription not found")
 	}
-	s.subMutex.Unlock()
+	defer s.subMutex.RUnlock()
 
 	// Force initialization messages for all matching events
 	now := time.Now()
