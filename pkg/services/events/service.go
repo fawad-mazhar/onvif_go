@@ -324,6 +324,14 @@ func (s *ServiceContext) PullMessagesHTTP(w http.ResponseWriter, r *http.Request
 		return fmt.Errorf("subscription not found")
 	}
 
+	// Re-check under a read lock to close TOCTOU window with cleanExpiredSubscriptions.
+	s.subMutex.RLock()
+	_, stillExists := s.subscriptions[subID]
+	s.subMutex.RUnlock()
+	if !stillExists {
+		return fmt.Errorf("subscription not found")
+	}
+
 	if sub.Type != PullPointSubscription {
 		return fmt.Errorf("not a pull point subscription")
 	}
@@ -419,7 +427,7 @@ func (s *ServiceContext) RenewHTTP(w http.ResponseWriter, r *http.Request) error
 		"%MSG_UUID%":         fmt.Sprintf("uuid-%d", time.Now().UnixNano()),
 		"%REL_TO_UUID%":      "uuid-relates-to", // Would parse from request
 		"%CURRENT_TIME%":     now.Format(time.RFC3339),
-		"%TERMINATION_TIME%": sub.ExpireTime.Format(time.RFC3339),
+		"%TERMINATION_TIME%": newExpiry.Format(time.RFC3339),
 	}
 
 	return utils.ProcessServiceTemplate(w, "events", "Renew", replacements)
@@ -473,6 +481,16 @@ func (s *ServiceContext) SetSynchronizationPointHTTP(w http.ResponseWriter, r *h
 	if !exists {
 		return fmt.Errorf("subscription not found")
 	}
+
+	// Re-check under a write lock to close TOCTOU window with cleanExpiredSubscriptions.
+	// Write lock matches cleanExpiredSubscriptions so message appends below cannot
+	// target an orphaned sub after cleanup has deleted the entry.
+	s.subMutex.Lock()
+	if _, stillExists := s.subscriptions[subID]; !stillExists {
+		s.subMutex.Unlock()
+		return fmt.Errorf("subscription not found")
+	}
+	s.subMutex.Unlock()
 
 	// Force initialization messages for all matching events
 	now := time.Now()
