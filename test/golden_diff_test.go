@@ -23,23 +23,21 @@ import (
 // fixturesDir is repo-relative.
 const fixturesDir = "fixtures"
 
-// TestGoldenDiff is the parity regression gate (Phase 0a).
+// TestGoldenDiff is the integration snapshot regression gate.
 //
-// For each captured fixture (test/fixtures/<service>/<Op>.{request,response}.xml)
-// it posts the request to an in-process Go server built against the
-// canonical fixture config, scrubs both the captured C response and the
-// Go response, canonicalizes both via c14n, and byte-compares.
+// For each fixture pair in test/fixtures/<service>/<Op>.{request,response}.xml
+// it posts the request to an in-process httptest server, scrubs
+// non-deterministic fields (timestamps, UUIDs), canonicalises via c14n,
+// and byte-compares against the stored snapshot.
 //
-// Regressions are not yet treated as failures: Phase 1-5 will gradually
-// bring Go's output into byte-identical parity. Until then, this test
-// LOGS pass/fail per op and only FAILS if the pass count drops below
-// the baseline stored at test/fixtures/.baseline.
+// A test FAILS only if an op that previously passed now fails (ratchet-up).
+// The set of required-passing ops is stored in test/fixtures/.baseline.
 //
-// To refresh the baseline after a legitimate improvement:
+// To update the baseline after an intentional output change:
 //
 //	GOLDEN_UPDATE_BASELINE=1 go test ./test/ -run GoldenDiff
 func TestGoldenDiff(t *testing.T) {
-	cfg, err := config.LoadConfig(filepath.Join(fixturesDir, "config", "server.conf"))
+	cfg, err := config.Load(filepath.Join(fixturesDir, "config", "server.conf"))
 	if err != nil {
 		t.Fatalf("load fixture config: %v", err)
 	}

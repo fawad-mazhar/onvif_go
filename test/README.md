@@ -27,6 +27,18 @@ go test -v -run GoldenDiff ./test/...
 
 No external server needed — all tests use `httptest.NewServer` internally.
 
+## Updating Snapshots
+
+`golden_diff_test.go` uses a ratchet-up baseline stored in `fixtures/.baseline`.
+When you make an intentional output change, regenerate it with:
+
+```bash
+GOLDEN_UPDATE_BASELINE=1 go test ./test/ -run GoldenDiff
+```
+
+The baseline records which ops are currently passing. A future run fails only
+if a previously-passing op regresses.
+
 ## Test Coverage
 
 - Authentication (all four auth paths)
