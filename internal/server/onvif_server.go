@@ -214,9 +214,9 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 		case soapAction == "GetProfile":
 			handleServiceError(w, r, mediaService.GetProfileHTTP(w, r, soapRequest), "Media.GetProfile")
 		case soapAction == "GetStreamUri":
-			handleServiceError(w, r, mediaService.GetStreamUriHTTP(w, r, soapRequest), "Media.GetStreamUri")
+			handleServiceError(w, r, mediaService.GetStreamURIHTTP(w, r, soapRequest), "Media.GetStreamUri")
 		case soapAction == "GetSnapshotUri":
-			handleServiceError(w, r, mediaService.GetSnapshotUriHTTP(w, r, soapRequest), "Media.GetSnapshotUri")
+			handleServiceError(w, r, mediaService.GetSnapshotURIHTTP(w, r, soapRequest), "Media.GetSnapshotUri")
 		case soapAction == "CreateProfile":
 			handleServiceError(w, r, mediaService.CreateProfileHTTP(w, r), "Media.CreateProfile")
 		default:
@@ -227,61 +227,61 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 			Port: cfg.Port,
 			Node: buildPTZNode(cfg.PTZNode),
 		}
-		switch {
-		case soapAction == "GetServiceCapabilities":
+		switch soapAction {
+		case "GetServiceCapabilities":
 			handleServiceError(w, r, ptzService.GetServiceCapabilitiesHTTP(w), "PTZ.GetServiceCapabilities")
-		case soapAction == "GetNodes":
+		case "GetNodes":
 			handleServiceError(w, r, ptzService.GetNodesHTTP(w), "PTZ.GetNodes")
-		case soapAction == "GetNode":
+		case "GetNode":
 			handleServiceError(w, r, ptzService.GetNodeHTTP(w, r, soapRequest), "PTZ.GetNode")
-		case soapAction == "GetConfigurations":
+		case "GetConfigurations":
 			handleServiceError(w, r, ptzService.GetConfigurationsHTTP(w), "PTZ.GetConfigurations")
-		case soapAction == "GetConfiguration":
+		case "GetConfiguration":
 			handleServiceError(w, r, ptzService.GetConfigurationHTTP(w), "PTZ.GetConfiguration")
-		case soapAction == "GetConfigurationOptions":
+		case "GetConfigurationOptions":
 			handleServiceError(w, r, ptzService.GetConfigurationOptionsHTTP(w), "PTZ.GetConfigurationOptions")
-		case soapAction == "GetPresets":
+		case "GetPresets":
 			handleServiceError(w, r, ptzService.GetPresetsHTTP(w, r, soapRequest), "PTZ.GetPresets")
-		case soapAction == "GotoPreset":
+		case "GotoPreset":
 			handleServiceError(w, r, ptzService.GotoPresetHTTP(w, r, soapRequest), "PTZ.GotoPreset")
-		case soapAction == "GotoHomePosition":
+		case "GotoHomePosition":
 			handleServiceError(w, r, ptzService.GotoHomePositionHTTP(w, r, soapRequest), "PTZ.GotoHomePosition")
-		case soapAction == "ContinuousMove":
+		case "ContinuousMove":
 			handleServiceError(w, r, ptzService.ContinuousMoveHTTP(w, r, soapRequest), "PTZ.ContinuousMove")
-		case soapAction == "RelativeMove":
+		case "RelativeMove":
 			handleServiceError(w, r, ptzService.RelativeMoveHTTP(w, r, soapRequest), "PTZ.RelativeMove")
-		case soapAction == "AbsoluteMove":
+		case "AbsoluteMove":
 			handleServiceError(w, r, ptzService.AbsoluteMoveHTTP(w, r, soapRequest), "PTZ.AbsoluteMove")
-		case soapAction == "Stop":
+		case "Stop":
 			handleServiceError(w, r, ptzService.StopHTTP(w, r, soapRequest), "PTZ.Stop")
-		case soapAction == "GetStatus":
+		case "GetStatus":
 			handleServiceError(w, r, ptzService.GetStatusHTTP(w, r, soapRequest), "PTZ.GetStatus")
-		case soapAction == "SetPreset":
+		case "SetPreset":
 			handleServiceError(w, r, ptzService.SetPresetHTTP(w, r, soapRequest), "PTZ.SetPreset")
-		case soapAction == "RemovePreset":
+		case "RemovePreset":
 			handleServiceError(w, r, ptzService.RemovePresetHTTP(w, r, soapRequest), "PTZ.RemovePreset")
-		case soapAction == "SetHomePosition":
+		case "SetHomePosition":
 			handleServiceError(w, r, ptzService.SetHomePositionHTTP(w, r, soapRequest), "PTZ.SetHomePosition")
 		default:
 			sendUnsupportedResponse(w, r, cfg, "tptz", soapAction)
 		}
 	case "events_service":
-		switch {
-		case soapAction == "GetServiceCapabilities":
+		switch soapAction {
+		case "GetServiceCapabilities":
 			handleServiceError(w, r, eventsService.GetServiceCapabilitiesHTTP(w), "Events.GetServiceCapabilities")
-		case soapAction == "CreatePullPointSubscription":
+		case "CreatePullPointSubscription":
 			handleServiceError(w, r, eventsService.CreatePullPointSubscriptionHTTP(w, r), "Events.CreatePullPointSubscription")
-		case soapAction == "PullMessages":
+		case "PullMessages":
 			handleServiceError(w, r, eventsService.PullMessagesHTTP(w, r), "Events.PullMessages")
-		case soapAction == "Subscribe":
+		case "Subscribe":
 			handleServiceError(w, r, eventsService.SubscribeHTTP(w, r), "Events.Subscribe")
-		case soapAction == "Renew":
+		case "Renew":
 			handleServiceError(w, r, eventsService.RenewHTTP(w, r), "Events.Renew")
-		case soapAction == "Unsubscribe":
+		case "Unsubscribe":
 			handleServiceError(w, r, eventsService.UnsubscribeHTTP(w, r), "Events.Unsubscribe")
-		case soapAction == "GetEventProperties":
+		case "GetEventProperties":
 			handleServiceError(w, r, eventsService.GetEventPropertiesHTTP(w), "Events.GetEventProperties")
-		case soapAction == "SetSynchronizationPoint":
+		case "SetSynchronizationPoint":
 			handleServiceError(w, r, eventsService.SetSynchronizationPointHTTP(w, r), "Events.SetSynchronizationPoint")
 		default:
 			sendUnsupportedResponse(w, r, cfg, "tev", soapAction)
@@ -381,7 +381,12 @@ func onvifMiddleware(_ *config.ServiceContext) func(http.Handler) http.Handler {
 // map must outlive individual HTTP requests.
 // mediaService must be non-nil for serviceName == "media_service"; pass nil
 // for all other services.
-func createONVIFHandler(cfg *config.ServiceContext, serviceName string, eventsService *events.ServiceContext, mediaService *media.ServiceContext) http.HandlerFunc {
+func createONVIFHandler(
+	cfg *config.ServiceContext,
+	serviceName string,
+	eventsService *events.ServiceContext,
+	mediaService *media.ServiceContext,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Read the SOAP request from the request body
 		body, err := io.ReadAll(r.Body)

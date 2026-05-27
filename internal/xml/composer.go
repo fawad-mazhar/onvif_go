@@ -47,7 +47,6 @@ func ComposeFromFiles(
 	globals map[string]string,
 	perItem []map[string]string,
 ) (string, error) {
-
 	if len(perItem) == 0 && nonePath != "" {
 		return ProcessTemplate(nonePath, globals)
 	}

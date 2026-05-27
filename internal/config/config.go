@@ -647,7 +647,6 @@ func parseEventsEnableConfig(context *ServiceContext, value string) error {
 // one profile. Use one format per file.
 func parseFlatConfig(context *ServiceContext, key, value string) error {
 	switch strings.ToLower(key) {
-
 	// Interface — C key is `ifs`, Go basic config uses `interface`
 	case "ifs":
 		context.Interface = value

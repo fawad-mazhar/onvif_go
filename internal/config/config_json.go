@@ -235,13 +235,7 @@ func convertJSONConfig(jcfg *jsonConfig) (*ServiceContext, error) {
 
 	// Events
 	for _, je := range jcfg.Events {
-		ctx.Events = append(ctx.Events, Event{
-			Topic:       je.Topic,
-			SourceName:  je.SourceName,
-			SourceType:  je.SourceType,
-			SourceValue: je.SourceValue,
-			InputFile:   je.InputFile,
-		})
+		ctx.Events = append(ctx.Events, Event(je))
 	}
 	ctx.EventsNum = len(ctx.Events)
 
