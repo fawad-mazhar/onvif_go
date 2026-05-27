@@ -147,7 +147,7 @@ func (s *ServiceContext) GetNodesHTTP(w http.ResponseWriter) error {
 // GetNodeHTTP handles GetNode — validates NodeToken then returns the node.
 func (s *ServiceContext) GetNodeHTTP(w http.ResponseWriter, r *http.Request, soapRequest string) error {
 	token, _ := xmlfault.ExtractElement([]byte(soapRequest), "NodeToken")
-	if token != "PTZNodeToken" {
+	if token != "PTZNodeToken" { //nolint:gosec // "PTZNodeToken" is a protocol identifier, not a credential
 		return ptzFault(w, r, "Sender", "ter:InvalidArgVal", "ter:NoEntity",
 			"No entity", "No such node on the device")
 	}
@@ -351,12 +351,17 @@ func (s *ServiceContext) ContinuousMoveHTTP(w http.ResponseWriter, r *http.Reque
 	return utils.ProcessServiceTemplate(w, "ptz", "ContinuousMove", nil)
 }
 
-// RelativeMoveHTTP handles RelativeMove — reads Translation PanTilt@x/y and calls jump_to_rel.
-func (s *ServiceContext) RelativeMoveHTTP(w http.ResponseWriter, r *http.Request, soapRequest string) error {
+// jumpMoveHTTP is the shared implementation for RelativeMoveHTTP and AbsoluteMoveHTTP.
+// cmd is the configured shell command; faultSubcode/reason/detail are the SOAP fault
+// fields emitted when PanTilt coordinates are absent; templateName is the response template.
+func (s *ServiceContext) jumpMoveHTTP(
+	w http.ResponseWriter, r *http.Request, soapRequest string,
+	cmd, faultSubcode, reason, detail, templateName string,
+) error {
 	if err := s.requirePTZProfile(w, r, soapRequest); err != nil {
 		return nil
 	}
-	if s.Node.JumpToRel == "" {
+	if cmd == "" {
 		return actionFailed(w, r)
 	}
 	data := []byte(soapRequest)
@@ -367,42 +372,30 @@ func (s *ServiceContext) RelativeMoveHTTP(w http.ResponseWriter, r *http.Request
 	dx, okX := parseAttrFloat(pxStr)
 	dy, okY := parseAttrFloat(pyStr)
 	if !okX || !okY {
-		return ptzFault(w, r, "Sender", "ter:InvalidArgVal", "ter:InvalidTranslation",
-			"Invalid translation", "The requested translation is out of bounds")
+		return ptzFault(w, r, "Sender", "ter:InvalidArgVal", faultSubcode, reason, detail)
 	}
 	dz, _ := parseAttrFloat(pzStr)
 
-	if err := exec.RunFmt(s.Node.JumpToRel, dx, dy, dz); err != nil {
-		logger.Warnf("PTZ RelativeMove exec: %v", err)
+	if err := exec.RunFmt(cmd, dx, dy, dz); err != nil {
+		logger.Warnf("PTZ %s exec: %v", templateName, err)
 	}
-	return utils.ProcessServiceTemplate(w, "ptz", "RelativeMove", nil)
+	return utils.ProcessServiceTemplate(w, "ptz", templateName, nil)
+}
+
+// RelativeMoveHTTP handles RelativeMove — reads Translation PanTilt@x/y and calls jump_to_rel.
+func (s *ServiceContext) RelativeMoveHTTP(w http.ResponseWriter, r *http.Request, soapRequest string) error {
+	return s.jumpMoveHTTP(w, r, soapRequest,
+		s.Node.JumpToRel, "ter:InvalidTranslation",
+		"Invalid translation", "The requested translation is out of bounds",
+		"RelativeMove")
 }
 
 // AbsoluteMoveHTTP handles AbsoluteMove — reads Position PanTilt@x/y/Zoom@x and calls jump_to_abs.
 func (s *ServiceContext) AbsoluteMoveHTTP(w http.ResponseWriter, r *http.Request, soapRequest string) error {
-	if err := s.requirePTZProfile(w, r, soapRequest); err != nil {
-		return nil
-	}
-	if s.Node.JumpToAbs == "" {
-		return actionFailed(w, r)
-	}
-	data := []byte(soapRequest)
-	pxStr, _ := xmlfault.ExtractAttr(data, "PanTilt", "x")
-	pyStr, _ := xmlfault.ExtractAttr(data, "PanTilt", "y")
-	pzStr, _ := xmlfault.ExtractAttr(data, "Zoom", "x")
-
-	dx, okX := parseAttrFloat(pxStr)
-	dy, okY := parseAttrFloat(pyStr)
-	if !okX || !okY {
-		return ptzFault(w, r, "Sender", "ter:InvalidArgVal", "ter:InvalidPosition",
-			"Invalid position", "The requested position is out of bounds")
-	}
-	dz, _ := parseAttrFloat(pzStr)
-
-	if err := exec.RunFmt(s.Node.JumpToAbs, dx, dy, dz); err != nil {
-		logger.Warnf("PTZ AbsoluteMove exec: %v", err)
-	}
-	return utils.ProcessServiceTemplate(w, "ptz", "AbsoluteMove", nil)
+	return s.jumpMoveHTTP(w, r, soapRequest,
+		s.Node.JumpToAbs, "ter:InvalidPosition",
+		"Invalid position", "The requested position is out of bounds",
+		"AbsoluteMove")
 }
 
 // StopHTTP handles Stop — reads optional PanTilt/Zoom booleans and calls move_stop.

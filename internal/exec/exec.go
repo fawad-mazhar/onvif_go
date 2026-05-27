@@ -53,7 +53,7 @@ func Run(cmdStr string) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer cancel()
-	return goexec.CommandContext(ctx, args[0], args[1:]...).Run()
+	return goexec.CommandContext(ctx, args[0], args[1:]...).Run() //nolint:gosec // PTZ command is user-configured; gated by validateSOAPArg
 }
 
 // RunFmt formats template via fmt.Sprintf(template, args...) and executes the
@@ -92,7 +92,7 @@ func Output(cmdStr string) (string, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer cancel()
-	cmd := goexec.CommandContext(ctx, args[0], args[1:]...)
+	cmd := goexec.CommandContext(ctx, args[0], args[1:]...) //nolint:gosec // PTZ command is user-configured; gated by validateSOAPArg
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	if err := cmd.Run(); err != nil {

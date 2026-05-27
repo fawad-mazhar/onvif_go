@@ -30,10 +30,10 @@ func (g gzipRC) Close() error {
 // already end with ".gz", openTemplate automatically retries with
 // filename+".gz" so callers can be format-agnostic.
 func openTemplate(filename string) (io.ReadCloser, error) {
-	f, err := os.Open(filename)
+	f, err := os.Open(filename) //nolint:gosec // template path is app-controlled
 	if err != nil {
 		if !strings.HasSuffix(filename, ".gz") {
-			gzf, gerr := os.Open(filename + ".gz")
+			gzf, gerr := os.Open(filename + ".gz") //nolint:gosec // template path is app-controlled
 			if gerr == nil {
 				gz, gerr2 := gzip.NewReader(gzf)
 				if gerr2 == nil {

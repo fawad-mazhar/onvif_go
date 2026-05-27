@@ -106,7 +106,7 @@ type jsonEvent struct {
 // See test/fixtures/config/server.json for a complete example that mirrors
 // test/fixtures/config/server.conf.
 func LoadConfigJSON(filename string) (*ServiceContext, error) {
-	data, err := os.ReadFile(filename)
+	data, err := os.ReadFile(filename) //nolint:gosec // config path is the app's explicit input
 	if err != nil {
 		return nil, fmt.Errorf("failed to open JSON config: %v", err)
 	}

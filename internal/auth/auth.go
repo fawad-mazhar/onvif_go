@@ -2,7 +2,7 @@
 package auth
 
 import (
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec // ONVIF WS-Security mandates SHA1 digest
 	"encoding/base64"
 	"time"
 
@@ -48,7 +48,7 @@ func (s *ServiceContext) ValidateUsernameToken(token UsernameToken) bool {
 
 		// Create the digest according to ONVIF specification
 		// Digest = Base64( SHA1( Base64Decode(Nonce) + Created + Password ) )
-		h := sha1.New()
+		h := sha1.New() //nolint:gosec // ONVIF WS-Security mandates SHA1 digest
 		h.Write(nonce)
 		h.Write([]byte(token.Created))
 		h.Write([]byte(s.Password))

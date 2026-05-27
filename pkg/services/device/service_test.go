@@ -80,25 +80,25 @@ func TestGetInterfaceIP_Empty(t *testing.T) {
 
 func TestServiceAddrs_Port80Omitted(t *testing.T) {
 	s := &ServiceContext{Port: 80, Interface: ""}
-	_, dev, _, _, _, _, err := s.serviceAddrs()
+	addrs, err := s.serviceAddrs()
 	if err != nil {
 		t.Fatalf("serviceAddrs: %v", err)
 	}
 	want := "http://127.0.0.1/onvif/device_service"
-	if dev != want {
-		t.Errorf("serviceAddrs device = %q; want %q", dev, want)
+	if addrs.Device != want {
+		t.Errorf("serviceAddrs device = %q; want %q", addrs.Device, want)
 	}
 }
 
 func TestServiceAddrs_NonDefaultPort(t *testing.T) {
 	s := &ServiceContext{Port: 8080, Interface: ""}
-	_, dev, _, _, _, _, err := s.serviceAddrs()
+	addrs, err := s.serviceAddrs()
 	if err != nil {
 		t.Fatalf("serviceAddrs: %v", err)
 	}
 	want := "http://127.0.0.1:8080/onvif/device_service"
-	if dev != want {
-		t.Errorf("serviceAddrs device = %q; want %q", dev, want)
+	if addrs.Device != want {
+		t.Errorf("serviceAddrs device = %q; want %q", addrs.Device, want)
 	}
 }
 

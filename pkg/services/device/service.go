@@ -41,24 +41,36 @@ type ServiceContext struct {
 	RelayOutputsNum int
 }
 
+// serviceURLs holds the canonical service endpoint URLs for a device.
+type serviceURLs struct {
+	IP       string
+	Device   string
+	Media    string
+	PTZ      string
+	Events   string
+	DeviceIO string
+}
+
 // serviceAddrs computes the canonical service URLs for this device.
 // Port 80 is omitted from the URL per C reference convention.
-func (s *ServiceContext) serviceAddrs() (ip, device, media, ptz, events, deviceio string, err error) {
-	ip, err = getInterfaceIP(s.Interface)
+func (s *ServiceContext) serviceAddrs() (serviceURLs, error) {
+	ip, err := getInterfaceIP(s.Interface)
 	if err != nil {
-		return
+		return serviceURLs{}, err
 	}
 	port := ""
 	if s.Port != 80 {
 		port = fmt.Sprintf(":%d", s.Port)
 	}
 	base := "http://" + ip + port + "/onvif"
-	device = base + "/device_service"
-	media = base + "/media_service"
-	ptz = base + "/ptz_service"
-	events = base + "/events_service"
-	deviceio = base + "/deviceio_service"
-	return
+	return serviceURLs{
+		IP:       ip,
+		Device:   base + "/device_service",
+		Media:    base + "/media_service",
+		PTZ:      base + "/ptz_service",
+		Events:   base + "/events_service",
+		DeviceIO: base + "/deviceio_service",
+	}, nil
 }
 
 // getInterfaceIP returns the first unicast IPv4 address on iface.
@@ -108,7 +120,7 @@ func (s *ServiceContext) eventsFlags() (pullpoint, basesubscription string) {
 // GetServicesHTTP returns a GetServicesResponse selecting the correct
 // template variant based on PTZ / Media2 / IncludeCapability flags.
 func (s *ServiceContext) GetServicesHTTP(w http.ResponseWriter, soapRequest string) error {
-	ip, devAddr, mediaAddr, ptzAddr, eventsAddr, deviceioAddr, err := s.serviceAddrs()
+	addrs, err := s.serviceAddrs()
 	if err != nil {
 		return err
 	}
@@ -117,7 +129,7 @@ func (s *ServiceContext) GetServicesHTTP(w http.ResponseWriter, soapRequest stri
 	if s.Port != 80 {
 		port = fmt.Sprintf(":%d", s.Port)
 	}
-	media2Addr := "http://" + ip + port + "/onvif/media2_service"
+	media2Addr := "http://" + addrs.IP + port + "/onvif/media2_service"
 
 	includeCapability, _ := xmlfault.ExtractElement([]byte(soapRequest), "IncludeCapability")
 	withCap := strings.EqualFold(includeCapability, "true")
@@ -125,12 +137,12 @@ func (s *ServiceContext) GetServicesHTTP(w http.ResponseWriter, soapRequest stri
 	pull, base := s.eventsFlags()
 
 	repl := map[string]string{
-		"%DEVICE_SERVICE_ADDRESS%":   devAddr,
-		"%MEDIA_SERVICE_ADDRESS%":    mediaAddr,
-		"%PTZ_SERVICE_ADDRESS%":      ptzAddr,
+		"%DEVICE_SERVICE_ADDRESS%":   addrs.Device,
+		"%MEDIA_SERVICE_ADDRESS%":    addrs.Media,
+		"%PTZ_SERVICE_ADDRESS%":      addrs.PTZ,
 		"%MEDIA2_SERVICE_ADDRESS%":   media2Addr,
-		"%EVENTS_SERVICE_ADDRESS%":   eventsAddr,
-		"%DEVICEIO_SERVICE_ADDRESS%": deviceioAddr,
+		"%EVENTS_SERVICE_ADDRESS%":   addrs.Events,
+		"%DEVICEIO_SERVICE_ADDRESS%": addrs.DeviceIO,
 		"%EVENTS_PULLPOINT%":         pull,
 		"%EVENTS_BASESUBSCRIPTION%":  base,
 		"%AUDIO_SOURCES%":            strconv.Itoa(s.AudioSources),
@@ -201,7 +213,7 @@ func categoryCode(category string) int {
 // GetCapabilitiesHTTP dispatches on the Category element, matching
 // device_service.c:444-596. Unknown categories return a SOAP fault.
 func (s *ServiceContext) GetCapabilitiesHTTP(w http.ResponseWriter, r *http.Request, soapRequest string) error {
-	_, devAddr, mediaAddr, ptzAddr, eventsAddr, deviceioAddr, err := s.serviceAddrs()
+	addrs, err := s.serviceAddrs()
 	if err != nil {
 		return err
 	}
@@ -227,11 +239,11 @@ func (s *ServiceContext) GetCapabilitiesHTTP(w http.ResponseWriter, r *http.Requ
 	switch icategory {
 	case 1:
 		return utils.ProcessServiceTemplate(w, "device", "GetDeviceCapabilities", map[string]string{
-			"%DEVICE_SERVICE_ADDRESS%": devAddr,
+			"%DEVICE_SERVICE_ADDRESS%": addrs.Device,
 		})
 	case 2:
 		return utils.ProcessServiceTemplate(w, "device", "GetMediaCapabilities", map[string]string{
-			"%MEDIA_SERVICE_ADDRESS%": mediaAddr,
+			"%MEDIA_SERVICE_ADDRESS%": addrs.Media,
 		})
 	case 4:
 		if !s.PTZEnable {
@@ -248,21 +260,21 @@ func (s *ServiceContext) GetCapabilitiesHTTP(w http.ResponseWriter, r *http.Requ
 			})
 		}
 		return utils.ProcessServiceTemplate(w, "device", "GetPTZCapabilities", map[string]string{
-			"%PTZ_SERVICE_ADDRESS%": ptzAddr,
+			"%PTZ_SERVICE_ADDRESS%": addrs.PTZ,
 		})
 	case 8:
 		return utils.ProcessServiceTemplate(w, "device", "GetEventsCapabilities", map[string]string{
-			"%EVENTS_SERVICE_ADDRESS%":  eventsAddr,
+			"%EVENTS_SERVICE_ADDRESS%":  addrs.Events,
 			"%EVENTS_BASESUBSCRIPTION%": base,
 			"%EVENTS_PULLPOINT%":        pull,
 		})
 	default:
 		repl := map[string]string{
-			"%DEVICE_SERVICE_ADDRESS%":   devAddr,
-			"%MEDIA_SERVICE_ADDRESS%":    mediaAddr,
-			"%PTZ_SERVICE_ADDRESS%":      ptzAddr,
-			"%EVENTS_SERVICE_ADDRESS%":   eventsAddr,
-			"%DEVICEIO_SERVICE_ADDRESS%": deviceioAddr,
+			"%DEVICE_SERVICE_ADDRESS%":   addrs.Device,
+			"%MEDIA_SERVICE_ADDRESS%":    addrs.Media,
+			"%PTZ_SERVICE_ADDRESS%":      addrs.PTZ,
+			"%EVENTS_SERVICE_ADDRESS%":   addrs.Events,
+			"%DEVICEIO_SERVICE_ADDRESS%": addrs.DeviceIO,
 			"%EVENTS_PULLPOINT%":         pull,
 			"%EVENTS_BASESUBSCRIPTION%":  base,
 			"%AUDIO_SOURCES%":            strconv.Itoa(s.AudioSources),

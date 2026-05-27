@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/fawad-mazhar/onvif-go/internal/config"
 	"github.com/fawad-mazhar/onvif-go/internal/logger"
@@ -12,17 +13,21 @@ import (
 )
 
 func StartNotificationServer(cfg *config.ServiceContext) error {
-	// Create HTTP server for notifications
-	http.HandleFunc("/notification", func(w http.ResponseWriter, r *http.Request) {
-		// Handle notification requests
+	mux := http.NewServeMux()
+	mux.HandleFunc("/notification", func(w http.ResponseWriter, r *http.Request) {
 		handleNotificationRequest(w, r, cfg)
 	})
 
-	// Start the HTTP server
 	addr := fmt.Sprintf(":%d", cfg.NotificationPort)
 	logger.Infof("Starting notification server on port %d", cfg.NotificationPort)
-	err := http.ListenAndServe(addr, nil)
-	if err != nil {
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      mux,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+	if err := srv.ListenAndServe(); err != nil {
 		logger.Fatalf("Failed to start notification server: %v", err)
 	}
 	return nil

@@ -201,7 +201,7 @@ const (
 
 // LoadConfig loads configuration from a file
 func LoadConfig(filename string) (*ServiceContext, error) {
-	file, err := os.Open(filename)
+	file, err := os.Open(filename) //nolint:gosec // config path is the app's explicit input
 	if err != nil {
 		return nil, fmt.Errorf("failed to open config file: %v", err)
 	}

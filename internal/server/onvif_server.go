@@ -121,7 +121,14 @@ func StartHTTPServer(cfg *config.ServiceContext) error {
 	logger.Infof("ONVIF server listening on address: %s", addr)
 	logger.Infof("Health check available at: http://localhost:%d/health", cfg.Port)
 	logger.Infof("Device info available at: http://localhost:%d/info", cfg.Port)
-	return http.ListenAndServe(addr, r)
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      r,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+	return srv.ListenAndServe()
 }
 
 // handleServiceError handles errors from service calls
