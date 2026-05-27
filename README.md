@@ -41,7 +41,9 @@ onvif-go/
 │   ├── events/             # Events service methods
 │   ├── media/              # Media service methods
 │   └── ptz/                # PTZ service methods
-├── service_files/          # XML response templates (per-service subdirectories)
+├── service_files/          # XML response templates
+│   ├── generic/            #   shared (Fault.xml, Empty.xml, …)
+│   └── <service>/          #   per-service subdirectories
 └── test/                   # Golden-diff integration tests
 ```
 
@@ -98,6 +100,7 @@ hardware_id=CAM001
 serial_num=SN0001234
 ifs=eth0
 port=8080
+uuid=550e8400-e29b-41d4-a716-446655440000
 scope=onvif://www.onvif.org/Profile/Streaming
 scope=onvif://www.onvif.org/Profile/S
 
@@ -159,6 +162,8 @@ See `internal/config/README.md` for the full field reference.
 | Key | Description |
 |---|---|
 | `port` | HTTP listen port |
+| `ifs` | Network interface name for service URL generation and WSD (`lo`, `eth0`, …) |
+| `uuid` | Device UUID embedded in WSD Hello/Bye and service URNs |
 | `user` / `password` | WS-UsernameToken credentials (empty = auth disabled) |
 | `adv_fault_if_unknown` | Send SOAP fault for unsupported actions instead of empty 200 |
 | `adv_fault_if_set` | Send SOAP fault for unsupported Set* actions |
@@ -196,7 +201,6 @@ GetWsdlUrl               SystemReboot
 ```
 GetServiceCapabilities   GetProfiles              GetProfile
 GetStreamUri             GetSnapshotUri           CreateProfile (→ fault)
-DeleteProfile (→ fault)
 ```
 
 ### PTZ

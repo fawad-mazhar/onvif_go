@@ -6,7 +6,7 @@ This directory contains test scripts to verify the functionality of the ONVIF se
 
 1. **auth_test.go** - WS-UsernameToken authentication (digest, wrong user, wrong password, plain-text rejection)
 2. **core_test.go** - Configuration loading with field-by-field assertions
-3. **golden_diff_test.go** - End-to-end golden-diff suite; every ONVIF response compared byte-for-byte against C reference fixtures
+3. **golden_diff_test.go** - Integration snapshot suite; every ONVIF response compared byte-for-byte against captured reference fixtures
 
 ## Running Tests
 
