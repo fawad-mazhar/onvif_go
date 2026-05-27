@@ -2,6 +2,7 @@
 package media
 
 import (
+	"encoding/xml"
 	"fmt"
 	"net/http"
 	"strings"
@@ -9,6 +10,13 @@ import (
 	"github.com/fawad-mazhar/onvif-go/internal/utils"
 	xmlfault "github.com/fawad-mazhar/onvif-go/internal/xml"
 )
+
+// xmlEscape escapes special XML characters in a string value.
+func xmlEscape(s string) string {
+	var b strings.Builder
+	_ = xml.EscapeText(&b, []byte(s))
+	return b.String()
+}
 
 // ServiceContext holds the configuration and state for the media service
 type ServiceContext struct {
@@ -41,6 +49,9 @@ type Profile struct {
 // H264Profile is "High" for index 0, "Main" for index 1+ (hardcoded in C reference).
 // ASC, AEC, and PTZConfiguration are included only when audio / PTZ are configured.
 func (s *ServiceContext) buildProfileXML(profile Profile, token string, index int, outerTag string) string {
+	if len(s.Profiles) == 0 {
+		return ""
+	}
 	total := len(s.Profiles)
 	vscW, vscH := s.Profiles[0].Width, s.Profiles[0].Height
 
@@ -104,7 +115,7 @@ func (s *ServiceContext) buildProfileXML(profile Profile, token string, index in
 				`<tt:AutoStart>false</tt:AutoStart></tt:Multicast>`+
 				`<tt:SessionTimeout>PT0S</tt:SessionTimeout>`+
 				`</tt:AudioEncoderConfiguration>`,
-			token, token, profile.AudioEncoder,
+			token, token, xmlEscape(profile.AudioEncoder),
 		)
 	}
 

@@ -61,16 +61,20 @@ func BuildRouter(cfg *config.ServiceContext) chi.Router {
 	eventsService.Port = cfg.Port
 	eventsService.Events = convertEvents(cfg.Events)
 
+	// mediaService is built once at startup; cfg is immutable so the result is
+	// identical for every request. Avoids a per-request allocation.
+	mediaService := buildMediaService(cfg)
+
 	r.Route("/onvif", func(r chi.Router) {
 		// Add custom middleware for ONVIF requests
 		r.Use(onvifMiddleware(cfg))
 
 		// ONVIF service endpoints
-		r.Post("/device_service", createONVIFHandler(cfg, "device_service", nil))
-		r.Post("/media_service", createONVIFHandler(cfg, "media_service", nil))
-		r.Post("/ptz_service", createONVIFHandler(cfg, "ptz_service", nil))
-		r.Post("/events_service", createONVIFHandler(cfg, "events_service", eventsService))
-		r.Post("/deviceio_service", createONVIFHandler(cfg, "deviceio_service", nil))
+		r.Post("/device_service", createONVIFHandler(cfg, "device_service", nil, nil))
+		r.Post("/media_service", createONVIFHandler(cfg, "media_service", nil, mediaService))
+		r.Post("/ptz_service", createONVIFHandler(cfg, "ptz_service", nil, nil))
+		r.Post("/events_service", createONVIFHandler(cfg, "events_service", eventsService, nil))
+		r.Post("/deviceio_service", createONVIFHandler(cfg, "deviceio_service", nil, nil))
 	})
 
 	// Add health check endpoint
@@ -151,8 +155,9 @@ func buildDeviceService(cfg *config.ServiceContext) *device.ServiceContext {
 
 // processSOAPRequest routes SOAP requests to the appropriate service handler.
 // eventsService is the singleton events.ServiceContext for events_service requests;
-// it is nil for all other service names.
-func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soapAction, serviceName string, cfg *config.ServiceContext, eventsService *events.ServiceContext) {
+// mediaService is the singleton media.ServiceContext for media_service requests;
+// both are nil for all other service names.
+func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soapAction, serviceName string, cfg *config.ServiceContext, eventsService *events.ServiceContext, mediaService *media.ServiceContext) {
 	switch serviceName {
 	case "device_service":
 		ds := buildDeviceService(cfg)
@@ -183,7 +188,6 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 			sendUnsupportedResponse(w, r, cfg, "tds", soapAction)
 		}
 	case "media_service":
-		mediaService := buildMediaService(cfg)
 		switch {
 		// adv_fault_if_set: these Set* ops fault unconditionally when the flag is set;
 		// otherwise they fall through to the default unsupported path.
@@ -365,7 +369,9 @@ func onvifMiddleware(_ *config.ServiceContext) func(http.Handler) http.Handler {
 // eventsService must be non-nil for serviceName == "events_service"; pass nil
 // for all other services. The events service is a singleton whose subscription
 // map must outlive individual HTTP requests.
-func createONVIFHandler(cfg *config.ServiceContext, serviceName string, eventsService *events.ServiceContext) http.HandlerFunc {
+// mediaService must be non-nil for serviceName == "media_service"; pass nil
+// for all other services.
+func createONVIFHandler(cfg *config.ServiceContext, serviceName string, eventsService *events.ServiceContext, mediaService *media.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Read the SOAP request from the request body
 		body, err := io.ReadAll(r.Body)
@@ -427,7 +433,7 @@ func createONVIFHandler(cfg *config.ServiceContext, serviceName string, eventsSe
 		}
 
 		// Route the request to the appropriate service handler
-		processSOAPRequest(w, r, soapRequest, soapAction, serviceName, cfg, eventsService)
+		processSOAPRequest(w, r, soapRequest, soapAction, serviceName, cfg, eventsService, mediaService)
 	}
 }
 
