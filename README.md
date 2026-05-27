@@ -1,8 +1,6 @@
 # ONVIF Simple Server — Go Implementation
 
-A Go port of [onvif_simple_server](https://github.com/roleoroleo/onvif_simple_server), a lightweight ONVIF server (Profile S) for resource-constrained devices.
-
-**Key difference from the C reference:** this Go version is a single self-contained binary. The ONVIF HTTP server, WS-Discovery daemon, and notification server all run in-process — no CGI, no separate daemons.
+A lightweight ONVIF server (Profile S) written in Go. It runs as a single self-contained binary — the ONVIF HTTP server, WS-Discovery daemon, and event notification server all start in one process with no external dependencies.
 
 ## Table of Contents
 - [Features](#features)

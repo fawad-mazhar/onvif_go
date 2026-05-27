@@ -4,11 +4,9 @@ This directory contains test scripts to verify the functionality of the ONVIF se
 
 ## Test Files
 
-1. **auth_test.go** - Tests authentication functionality
-2. **core_test.go** - Tests core configuration and service functionality
-3. **onvif_test.go** - Tests ONVIF server functionality
-4. **notification_test.go** - Tests notification server functionality
-5. **wsd_test.go** - Tests WSD (Web Services Dynamic Discovery) server functionality
+1. **auth_test.go** - WS-UsernameToken authentication (digest, wrong user, wrong password, plain-text rejection)
+2. **core_test.go** - Configuration loading with field-by-field assertions
+3. **golden_diff_test.go** - End-to-end golden-diff suite; every ONVIF response compared byte-for-byte against C reference fixtures
 
 ## Running Tests
 
@@ -18,47 +16,21 @@ To run all tests:
 go test -v ./test/...
 ```
 
-To run tests for a specific component:
+To run a specific file:
 
 ```bash
-# Run only authentication tests
-go test -v ./test/auth_test.go
-
-# Run only ONVIF tests
-go test -v ./test/onvif_test.go
-
-# Run only notification tests
-go test -v ./test/notification_test.go
-
-# Run only WSD tests
-go test -v ./test/wsd_test.go
+go test -v -run TestAuth ./test/...
+go test -v -run GoldenDiff ./test/...
 ```
 
 ## Test Requirements
 
-- The ONVIF server must be running on port 8080
-- The WSD server must be running on port 3702
-- The notification server must be running on port 8081
-
-Start the server before running integration tests:
-
-```bash
-./bin/onvif_server
-```
-
-## Test Results
-
-The integration tests (ONVIF, notification, WSD) will be skipped if the respective servers are not running.
-When servers are running, these tests will verify that the servers respond correctly to standard ONVIF/WSD requests.
+No external server needed — all tests use `httptest.NewServer` internally.
 
 ## Test Coverage
 
-The tests cover basic functionality verification:
-- Authentication validation
-- Configuration loading
-- Device information retrieval
-- Media profile listing
-- PTZ node information
-- Event properties
-- WSD probe and resolve operations
-- Notification subscription and message pulling
+- Authentication (all four auth paths)
+- Configuration loading (flat `.conf` format, all field types)
+- Golden-diff for all 21 happy-path ONVIF responses (Device, Media, PTZ, Events, DeviceIO)
+
+For the full list of covered operations see the `test/fixtures/` subdirectories.

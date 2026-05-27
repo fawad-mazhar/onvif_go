@@ -64,7 +64,7 @@ scope.1 = "onvif://www.onvif.org/location/TestLocation"
 	defer os.Remove(configPath)
 
 	// Test loading the configuration
-	cfg, err := config.LoadConfig(configPath)
+	cfg, err := config.Load(configPath)
 	if err != nil {
 		t.Fatalf("Failed to load configuration: %v", err)
 	}
