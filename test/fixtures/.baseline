@@ -9,6 +9,7 @@ device_service/GetUsers
 device_service/GetWsdlUrl
 deviceio_service/GetRelayOutputs
 deviceio_service/GetServiceCapabilities
+events_service/GetEventProperties
 events_service/GetServiceCapabilities
 media_service/CreateProfile
 media_service/GetProfile

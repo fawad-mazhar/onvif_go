@@ -60,6 +60,16 @@ func BuildRouter(cfg *config.ServiceContext) chi.Router {
 	eventsService := events.NewServiceContext()
 	eventsService.Port = cfg.Port
 	eventsService.Events = convertEvents(cfg.Events)
+	// Auto-append one relay event per relay output, mirroring C conf.c:570-595.
+	// This populates the tns1:Device/Trigger/Relay topics in GetEventProperties.
+	for i := range cfg.RelayOutputs {
+		eventsService.Events = append(eventsService.Events, events.Event{
+			Topic:       "tns1:Device/Trigger/Relay",
+			SourceName:  "RelayToken",
+			SourceType:  "tt:ReferenceToken",
+			SourceValue: fmt.Sprintf("RelayOutputToken_%d", i),
+		})
+	}
 
 	// mediaService is built once at startup; cfg is immutable so the result is
 	// identical for every request. Avoids a per-request allocation.
