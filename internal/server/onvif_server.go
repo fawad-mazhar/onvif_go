@@ -183,6 +183,7 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 			sendUnsupportedResponse(w, r, cfg, "tds", soapAction)
 		}
 	case "media_service":
+		mediaService := buildMediaService(cfg)
 		switch {
 		// adv_fault_if_set: these Set* ops fault unconditionally when the flag is set;
 		// otherwise they fall through to the default unsupported path.
@@ -193,38 +194,16 @@ func processSOAPRequest(w http.ResponseWriter, r *http.Request, soapRequest, soa
 			soapAction == "SetAudioOutputConfiguration"):
 			sendSOAPError(w, r, "Action failed")
 		case soapAction == "GetServiceCapabilities":
-			mediaService := &media.ServiceContext{
-				Port: cfg.Port,
-			}
 			handleServiceError(w, r, mediaService.GetServiceCapabilitiesHTTP(w), "Media.GetServiceCapabilities")
 		case soapAction == "GetProfiles":
-			mediaService := &media.ServiceContext{
-				Port:     cfg.Port,
-				Profiles: convertMediaProfiles(cfg.Profiles),
-			}
 			handleServiceError(w, r, mediaService.GetProfilesHTTP(w), "Media.GetProfiles")
 		case soapAction == "GetProfile":
-			mediaService := &media.ServiceContext{
-				Port:     cfg.Port,
-				Profiles: convertMediaProfiles(cfg.Profiles),
-			}
 			handleServiceError(w, r, mediaService.GetProfileHTTP(w, r, soapRequest), "Media.GetProfile")
 		case soapAction == "GetStreamUri":
-			mediaService := &media.ServiceContext{
-				Port:     cfg.Port,
-				Profiles: convertMediaProfiles(cfg.Profiles),
-			}
 			handleServiceError(w, r, mediaService.GetStreamUriHTTP(w, r, soapRequest), "Media.GetStreamUri")
 		case soapAction == "GetSnapshotUri":
-			mediaService := &media.ServiceContext{
-				Port:     cfg.Port,
-				Profiles: convertMediaProfiles(cfg.Profiles),
-			}
 			handleServiceError(w, r, mediaService.GetSnapshotUriHTTP(w, r, soapRequest), "Media.GetSnapshotUri")
 		case soapAction == "CreateProfile":
-			mediaService := &media.ServiceContext{
-				Port: cfg.Port,
-			}
 			handleServiceError(w, r, mediaService.CreateProfileHTTP(w, r), "Media.CreateProfile")
 		default:
 			sendUnsupportedResponse(w, r, cfg, "trt", soapAction)
@@ -463,6 +442,22 @@ func parseSOAPAction(soapRequest string) string {
 		return ""
 	}
 	return action
+}
+
+// buildMediaService constructs a media.ServiceContext from the canonical config,
+// including PTZ limits so profile XML matches the C reference output.
+func buildMediaService(cfg *config.ServiceContext) *media.ServiceContext {
+	return &media.ServiceContext{
+		Port:       cfg.Port,
+		Profiles:   convertMediaProfiles(cfg.Profiles),
+		PTZEnabled: cfg.PTZNode.Enable == 1,
+		PTZMinX:    cfg.PTZNode.MinStepX,
+		PTZMaxX:    cfg.PTZNode.MaxStepX,
+		PTZMinY:    cfg.PTZNode.MinStepY,
+		PTZMaxY:    cfg.PTZNode.MaxStepY,
+		PTZMinZ:    cfg.PTZNode.MinStepZ,
+		PTZMaxZ:    cfg.PTZNode.MaxStepZ,
+	}
 }
 
 // convertMediaProfiles converts config.StreamProfile to media.Profile

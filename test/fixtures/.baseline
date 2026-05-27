@@ -11,5 +11,10 @@ deviceio_service/GetRelayOutputs
 deviceio_service/GetServiceCapabilities
 events_service/GetServiceCapabilities
 media_service/CreateProfile
+media_service/GetProfile
+media_service/GetProfiles
+media_service/GetServiceCapabilities
+media_service/GetSnapshotUri
+media_service/GetStreamUri
 ptz_service/GetNodes
 ptz_service/GetServiceCapabilities

@@ -12,8 +12,15 @@ import (
 
 // ServiceContext holds the configuration and state for the media service
 type ServiceContext struct {
-	Port     int
-	Profiles []Profile
+	Port       int
+	Profiles   []Profile
+	PTZEnabled bool
+	PTZMinX    float64
+	PTZMaxX    float64
+	PTZMinY    float64
+	PTZMaxY    float64
+	PTZMinZ    float64
+	PTZMaxZ    float64
 }
 
 // Profile represents a media profile configuration
@@ -28,29 +35,119 @@ type Profile struct {
 	AudioDecoder string
 }
 
-// createProfileElement creates an XML element for a profile
-func (s *ServiceContext) createProfileElement(profile Profile, token string) string {
-	// Create video source configuration
-	videoSourceConfig := fmt.Sprintf(`
-                    <trt:VideoSourceConfiguration token="%s_vsconf">
-                        <tt:Name>VideoSourceConfiguration</tt:Name>
-                        <tt:UseCount>1</tt:UseCount>
-                        <tt:SourceToken>VideoSource</tt:SourceToken>
-                        <tt:Bounds x="0" y="0" width="%d" height="%d"/>
-                    </trt:VideoSourceConfiguration>`, token, profile.Width, profile.Height)
+// buildProfileXML assembles one complete profile entry matching the C reference output.
+// outerTag is "trt:Profile" for GetProfile responses, "trt:Profiles" for GetProfiles.
+// VSC always uses Profiles[0] dimensions (C reference behavior — one physical source).
+// H264Profile is "High" for index 0, "Main" for index 1+ (hardcoded in C reference).
+// ASC, AEC, and PTZConfiguration are included only when audio / PTZ are configured.
+func (s *ServiceContext) buildProfileXML(profile Profile, token string, index int, outerTag string) string {
+	total := len(s.Profiles)
+	vscW, vscH := s.Profiles[0].Width, s.Profiles[0].Height
 
-	// Create video encoder configuration using shared utility
-	videoEncoderConfig := utils.CreateVideoEncoderConfig(profile.Type, token, profile.Width, profile.Height)
+	vsc := fmt.Sprintf(
+		`<tt:VideoSourceConfiguration token="VideoSourceConfigToken">`+
+			`<tt:Name>VideoSourceConfig</tt:Name>`+
+			`<tt:UseCount>%d</tt:UseCount>`+
+			`<tt:SourceToken>VideoSourceToken</tt:SourceToken>`+
+			`<tt:Bounds x="0" y="0" width="%d" height="%d"/>`+
+			`</tt:VideoSourceConfiguration>`,
+		total, vscW, vscH,
+	)
 
-	// Create profile element
-	profileElement := fmt.Sprintf(`
-                <trt:Profiles token="%s" fixed="true">
-                    <tt:Name>%s</tt:Name>
-                    %s
-                    %s
-                </trt:Profiles>`, token, profile.Name, videoSourceConfig, videoEncoderConfig)
+	var asc string
+	if profile.AudioEncoder != "AudioNone" {
+		asc = fmt.Sprintf(
+			`<tt:AudioSourceConfiguration token="AudioSourceConfigToken">`+
+				`<tt:Name>AudioSourceConfig</tt:Name>`+
+				`<tt:UseCount>%d</tt:UseCount>`+
+				`<tt:SourceToken>AudioSourceToken</tt:SourceToken>`+
+				`</tt:AudioSourceConfiguration>`,
+			total,
+		)
+	}
 
-	return profileElement
+	h264Profile := "High"
+	if index > 0 {
+		h264Profile = "Main"
+	}
+	vec := fmt.Sprintf(
+		`<tt:VideoEncoderConfiguration token="%s_VideoEncoderToken">`+
+			`<tt:Name>%s_VideoEncoder</tt:Name>`+
+			`<tt:UseCount>1</tt:UseCount>`+
+			`<tt:Encoding>H264</tt:Encoding>`+
+			`<tt:Resolution><tt:Width>%d</tt:Width><tt:Height>%d</tt:Height></tt:Resolution>`+
+			`<tt:Quality>100</tt:Quality>`+
+			`<tt:RateControl><tt:FrameRateLimit>30</tt:FrameRateLimit>`+
+			`<tt:EncodingInterval>1</tt:EncodingInterval>`+
+			`<tt:BitrateLimit>5000</tt:BitrateLimit></tt:RateControl>`+
+			`<tt:H264><tt:GovLength>40</tt:GovLength>`+
+			`<tt:H264Profile>%s</tt:H264Profile></tt:H264>`+
+			`<tt:Multicast><tt:Address><tt:Type>IPv4</tt:Type></tt:Address>`+
+			`<tt:Port>0</tt:Port><tt:TTL>0</tt:TTL>`+
+			`<tt:AutoStart>false</tt:AutoStart></tt:Multicast>`+
+			`<tt:SessionTimeout>PT0S</tt:SessionTimeout>`+
+			`</tt:VideoEncoderConfiguration>`,
+		token, token, profile.Width, profile.Height, h264Profile,
+	)
+
+	var aec string
+	if profile.AudioEncoder != "AudioNone" {
+		aec = fmt.Sprintf(
+			`<tt:AudioEncoderConfiguration token="%s_AudioEncoderToken">`+
+				`<tt:Name>%s_AudioEncoder</tt:Name>`+
+				`<tt:UseCount>1</tt:UseCount>`+
+				`<tt:Encoding>%s</tt:Encoding>`+
+				`<tt:Bitrate>50</tt:Bitrate>`+
+				`<tt:SampleRate>16</tt:SampleRate>`+
+				`<tt:Multicast><tt:Address><tt:Type>IPv4</tt:Type></tt:Address>`+
+				`<tt:Port>0</tt:Port><tt:TTL>0</tt:TTL>`+
+				`<tt:AutoStart>false</tt:AutoStart></tt:Multicast>`+
+				`<tt:SessionTimeout>PT0S</tt:SessionTimeout>`+
+				`</tt:AudioEncoderConfiguration>`,
+			token, token, profile.AudioEncoder,
+		)
+	}
+
+	var ptz string
+	if s.PTZEnabled {
+		ptz = fmt.Sprintf(
+			`<tt:PTZConfiguration token="PTZCfgToken" MoveRamp="0" PresetRamp="0" PresetTourRamp="0">`+
+				`<tt:Name>PTZCfg</tt:Name>`+
+				`<tt:UseCount>0</tt:UseCount>`+
+				`<tt:NodeToken>PTZNodeToken</tt:NodeToken>`+
+				`<tt:DefaultAbsolutePantTiltPositionSpace>http://www.onvif.org/ver10/tptz/PanTiltSpaces/PositionGenericSpace</tt:DefaultAbsolutePantTiltPositionSpace>`+
+				`<tt:DefaultAbsoluteZoomPositionSpace>http://www.onvif.org/ver10/tptz/ZoomSpaces/PositionGenericSpace</tt:DefaultAbsoluteZoomPositionSpace>`+
+				`<tt:DefaultRelativePanTiltTranslationSpace>http://www.onvif.org/ver10/tptz/PanTiltSpaces/TranslationGenericSpace</tt:DefaultRelativePanTiltTranslationSpace>`+
+				`<tt:DefaultRelativeZoomTranslationSpace>http://www.onvif.org/ver10/tptz/ZoomSpaces/TranslationGenericSpace</tt:DefaultRelativeZoomTranslationSpace>`+
+				`<tt:DefaultContinuousPanTiltVelocitySpace>http://www.onvif.org/ver10/tptz/PanTiltSpaces/VelocityGenericSpace</tt:DefaultContinuousPanTiltVelocitySpace>`+
+				`<tt:DefaultContinuousZoomVelocitySpace>http://www.onvif.org/ver10/tptz/ZoomSpaces/VelocityGenericSpace</tt:DefaultContinuousZoomVelocitySpace>`+
+				`<tt:DefaultPTZSpeed>`+
+				`<tt:PanTilt x="1.0" y="1.0" space="http://www.onvif.org/ver10/tptz/PanTiltSpaces/GenericSpeedSpace"/>`+
+				`<tt:Zoom x="1.0" space="http://www.onvif.org/ver10/tptz/ZoomSpaces/ZoomGenericSpeedSpace"/>`+
+				`</tt:DefaultPTZSpeed>`+
+				`<tt:DefaultPTZTimeout>PT00H00M05S</tt:DefaultPTZTimeout>`+
+				`<tt:PanTiltLimits><tt:Range>`+
+				`<tt:URI>http://www.onvif.org/ver10/tptz/PanTiltSpaces/PositionGenericSpace</tt:URI>`+
+				`<tt:XRange><tt:Min>%.1f</tt:Min><tt:Max>%.1f</tt:Max></tt:XRange>`+
+				`<tt:YRange><tt:Min>%.1f</tt:Min><tt:Max>%.1f</tt:Max></tt:YRange>`+
+				`</tt:Range></tt:PanTiltLimits>`+
+				`<tt:ZoomLimits><tt:Range>`+
+				`<tt:URI>http://www.onvif.org/ver10/tptz/ZoomSpaces/PositionGenericSpace</tt:URI>`+
+				`<tt:XRange><tt:Min>%.1f</tt:Min><tt:Max>%.1f</tt:Max></tt:XRange>`+
+				`</tt:Range></tt:ZoomLimits>`+
+				`<tt:Extension><tt:PTControlDirection>`+
+				`<tt:EFlip><tt:Mode>OFF</tt:Mode></tt:EFlip>`+
+				`<tt:Reverse><tt:Mode>OFF</tt:Mode></tt:Reverse>`+
+				`</tt:PTControlDirection></tt:Extension>`+
+				`</tt:PTZConfiguration>`,
+			s.PTZMinX, s.PTZMaxX, s.PTZMinY, s.PTZMaxY,
+			s.PTZMinZ, s.PTZMaxZ,
+		)
+	}
+
+	return fmt.Sprintf(`<%s token="%s" fixed="true"><tt:Name>%s</tt:Name>%s%s%s%s%s</%s>`,
+		outerTag, token, profile.Name, vsc, asc, vec, aec, ptz, outerTag,
+	)
 }
 
 // HTTP-compatible methods that write to http.ResponseWriter
@@ -71,10 +168,10 @@ func (s *ServiceContext) GetProfilesHTTP(w http.ResponseWriter) error {
 	// Create profile elements
 	profileElements := make([]string, len(s.Profiles))
 	for i, profile := range s.Profiles {
-		profileElements[i] = s.createProfileElement(profile, fmt.Sprintf("Profile%d", i))
+		profileElements[i] = s.buildProfileXML(profile, profile.Name, i, "trt:Profiles")
 	}
 
-	profilesXML := strings.Join(profileElements, "\n")
+	profilesXML := strings.Join(profileElements, "")
 
 	// Create replacements map for template processing
 	replacements := map[string]string{
@@ -94,13 +191,13 @@ func (s *ServiceContext) GetProfileHTTP(w http.ResponseWriter, r *http.Request, 
 	}
 
 	// Find the profile by token
-	profile, token := s.findProfileByToken(profileToken)
+	profile, token, index := s.findProfileByToken(profileToken)
 	if profile == nil {
 		return sendMediaFault(w, r, "Sender", "ter:InvalidArgVal", "ter:NoProfile", "No profile", "The requested profile token does not exist")
 	}
 
 	// Create the full profile XML with all configurations
-	profileXML := s.createProfileElement(*profile, token)
+	profileXML := s.buildProfileXML(*profile, token, index, "trt:Profile")
 
 	// Create replacements map for template processing
 	replacements := map[string]string{
@@ -111,15 +208,15 @@ func (s *ServiceContext) GetProfileHTTP(w http.ResponseWriter, r *http.Request, 
 	return utils.ProcessServiceTemplate(w, "media", "GetProfile", replacements)
 }
 
-// findProfileByToken finds a profile by its token or name and returns both profile and token
-func (s *ServiceContext) findProfileByToken(profileToken string) (*Profile, string) {
-	for i, p := range s.Profiles {
-		token := fmt.Sprintf("Profile%d", i)
-		if token == profileToken || p.Name == profileToken {
-			return &p, token
+// findProfileByToken finds a profile by its name/token and returns profile, token, and index.
+// The profile Name is used as token (C reference uses config name as the profile token).
+func (s *ServiceContext) findProfileByToken(profileToken string) (*Profile, string, int) {
+	for i := range s.Profiles {
+		if s.Profiles[i].Name == profileToken {
+			return &s.Profiles[i], s.Profiles[i].Name, i
 		}
 	}
-	return nil, ""
+	return nil, "", 0
 }
 
 // getMediaUriHTTP is a generic helper for GetStreamUri and GetSnapshotUri
@@ -131,7 +228,7 @@ func (s *ServiceContext) getMediaUriHTTP(w http.ResponseWriter, r *http.Request,
 	}
 
 	// Find the profile by token
-	profile, _ := s.findProfileByToken(profileToken)
+	profile, _, _ := s.findProfileByToken(profileToken)
 	if profile == nil {
 		return sendMediaFault(w, r, "Sender", "ter:InvalidArgVal", "ter:NoProfile", "No profile", "The requested profile does not exist")
 	}
