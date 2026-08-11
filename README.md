@@ -227,16 +227,3 @@ GetServiceCapabilities   GetRelayOutputs
 ```
 
 All other actions return an appropriate SOAP fault (or an empty 200 response, depending on `adv_fault_if_unknown`).
-
-## Compatibility
-
-Tested with the same ONVIF clients as the C reference:
-- Onvif Device Manager (Windows)
-- Synology Surveillance Station (DSM 6.x and 7.x)
-- Onvier (Android)
-- Frigate
-- Unifi Protect
-
-## License
-
-[GPLv3](https://choosealicense.com/licenses/gpl-3.0/)
